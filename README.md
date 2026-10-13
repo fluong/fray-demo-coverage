@@ -40,7 +40,7 @@ context.
 | FR-017 | `signal:iam_service:bedrock` | open | `global.` inference profile → combined Bedrock region `global` |
 | FR-004 | `aws_iam_role_policy.bedrock_pinned` | mitigated | InvokeModel on one eu-west-1 foundation-model ARN |
 | FR-004 | `aws_iam_role_policy.bedrock_global` | mitigated | InvokeModel on one `global.` inference-profile ARN |
-| FR-032 | `aws_iam_role_policy.known` (+ `datadoc`) | mitigated | Literal + policy-document ARNs on task role; one root task def |
+| FR-032 | `aws_iam_role_policy.known` (+ `datadoc`) | mitigated | Literal + plan-time data-doc ARNs on task role; one root task def |
 | FR-001 | `aws_apigatewayv2_route.public` | open | HTTP API route `authorization_type = NONE` |
 | FR-001 | `aws_lambda_function_url.open` | open | Function URL `authorization_type = NONE` |
 | FR-001 | `aws_lb.cognito` | mitigated | Cognito-authenticated HTTPS listener on an internet ALB |
@@ -48,6 +48,13 @@ context.
 Flat layout (four files, no modules). One root `aws_ecs_task_definition` so
 Fray can resolve `task_role_arn`. FR-007 secret-delivery needs `module.*`
 callRefs and is not asserted here.
+
+### Known gaps
+
+| ID | Gap |
+|----|-----|
+| B-43 | FR-007 unverified — secret delivery needs `module.*` refs; not assertable flat |
+| B-44 | Address-keyed mitigated assert — `findings.json` has DFD target ids only (see backlog below) |
 
 ### Known incidental opens
 
