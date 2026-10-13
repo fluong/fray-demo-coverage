@@ -19,15 +19,19 @@ if ! command -v grep >/dev/null 2>&1; then
 fi
 
 denylist="$root/scripts/check-internal-identifiers.sh"
-if [[ ! -f "$denylist" ]]; then
-  echo "missing guardrail script: $denylist" >&2
-  exit 2
-fi
-if [[ ! -x "$denylist" ]]; then
-  echo "guardrail script not executable: $denylist" >&2
-  exit 2
-fi
+docs="$root/scripts/check-public-docs.sh"
+for script in "$denylist" "$docs"; do
+  if [[ ! -f "$script" ]]; then
+    echo "missing guardrail script: $script" >&2
+    exit 2
+  fi
+  if [[ ! -x "$script" ]]; then
+    echo "guardrail script not executable: $script" >&2
+    exit 2
+  fi
+done
 
 gitleaks protect --staged --verbose --no-banner </dev/null
 gitleaks detect --source . --log-opts='--all' --verbose --no-banner </dev/null
 "$denylist" </dev/null
+"$docs" </dev/null

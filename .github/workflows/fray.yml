@@ -51,6 +51,11 @@ jobs:
           chmod +x scripts/check-internal-identifiers.sh
           ./scripts/check-internal-identifiers.sh
 
+      - name: Public docs (companion-repo name / run.app)
+        run: |
+          chmod +x scripts/check-public-docs.sh
+          ./scripts/check-public-docs.sh
+
   fray:
     runs-on: ${{ inputs.runner || 'ubuntu-26.04' }}
     services:
