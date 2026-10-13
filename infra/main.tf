@@ -287,21 +287,31 @@ resource "aws_lambda_function" "bedrock_global" {
 # ---------------------------------------------------------------------------
 # (e) FR-032 IAM shapes (B-35) — flat layout, exactly one task definition.
 #
-# Fray resolves the task role via taskAddress(module): under a root module it
-# requires len(aws_ecs_task_definition)==1. Multiple root task defs → no
-# bucket flows. bucketFlows reads task_role_arn (not execution_role_arn).
-# Literal bucket names in the policy must match aws_s3_bucket.bucket.
+# Fray resolves the task via taskAddress: len(aws_ecs_task_definition)==1.
+# bucketFlows reads task_role_arn (not execution_role_arn).
 #
-# a) jsonencode LITERAL ARN → resource → mitigated
-# b) data.aws_iam_policy_document with LITERAL ARN → mitigated (same role/bucket
-#    would duplicate; use a second statement on a separate scan — here we keep
-#    datadoc as the alternate known path on the same role+bucket)
-# c) Not co-located with (a): known+unknown sibling omits authz_scope (would
-#    turn the single flow unverified). Documented; assert (a)/(b) mitigated.
+# FR-032 when: to.kind=object_storage AND authz_scope exists; pass: scope=resource.
+# It does not require authz_actions / write verbs (GetObject alone can mitigate),
+# but we grant PutObject+DeleteObject so authz_actions is also populated.
+#
+# data.aws_iam_policy_document with only literal ARNs stays in prior_state
+# (not resource_changes) → loadDataResources misses it → resolvePolicyContent
+# treats the attachment as unknown → bucketFlows omits authz_scope. Resource
+# the object ARN as ${aws_s3_bucket.uploads.arn}/* so Terraform emits a data
+# "read" in resource_changes; Fray then reads the document (null Resource is
+# OK alongside the literal sibling grant).
+#
+# FR-007 unverified (unknown identity-policy + secret delivery) needs module.*
+# secret refs (elementsFromRefs / readRootContainers) — not assertable flat.
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "uploads" {
   bucket = "${local.name}-uploads-fake"
+}
+
+resource "aws_iam_role" "ecs_exec" {
+  name               = "${local.name}-ecs-exec"
+  assume_role_policy = local.assume_ecs
 }
 
 resource "aws_iam_role" "ecs_task" {
@@ -319,9 +329,8 @@ resource "aws_ecs_task_definition" "app" {
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
-  # bucketFlows uses task_role_arn; keep exec=task so one role owns S3.
-  execution_role_arn = aws_iam_role.ecs_task.arn
-  task_role_arn      = aws_iam_role.ecs_task.arn
+  execution_role_arn       = aws_iam_role.ecs_exec.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
   container_definitions = jsonencode([{
     name      = "app"
     image     = "public.ecr.aws/docker/library/nginx:1.27"
@@ -353,7 +362,7 @@ resource "aws_ecs_service" "app" {
   }
 }
 
-# (a) Literal ARN string — known JSON; bucket name matches aws_s3_bucket.uploads.
+# (a) Literal ARN — known JSON on task role; bucket name matches uploads.
 resource "aws_iam_role_policy" "known" {
   name = "known-literal-arns"
   role = aws_iam_role.ecs_task.id
@@ -361,25 +370,24 @@ resource "aws_iam_role_policy" "known" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["s3:GetObject"]
+      Action   = ["s3:PutObject", "s3:DeleteObject"]
       Resource = ["arn:aws:s3:::${local.name}-uploads-fake/*"]
     }]
   })
 }
 
-# (b) data.aws_iam_policy_document with the same literal ARN (known at plan).
-# Attached as a second Allow on the same role/bucket — still one resource-scoped
-# flow (duplicate grant, same scope).
+# (b) data.aws_iam_policy_document attached on the task role (readable when the
+# Resource ARN is plan-unknown so the data source appears in resource_changes).
 data "aws_iam_policy_document" "datadoc" {
   statement {
-    sid       = "S3Get"
-    actions   = ["s3:GetObject"]
-    resources = ["arn:aws:s3:::${local.name}-uploads-fake/*"]
+    sid     = "S3Write"
+    actions = ["s3:PutObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.uploads.arn}/*"]
   }
 }
 
 resource "aws_iam_role_policy" "datadoc" {
-  name   = "datadoc-literals"
+  name   = "datadoc-from-data"
   role   = aws_iam_role.ecs_task.id
   policy = data.aws_iam_policy_document.datadoc.json
 }

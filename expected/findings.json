@@ -42,7 +42,7 @@
       "rule": "FR-032",
       "address": "aws_iam_role_policy.known",
       "verdict": "mitigated",
-      "why": "Literal + datadoc policies on task_role; single root task def; bucket name matches (one flow)"
+      "why": "task_role: literal + data-doc PutObject/DeleteObject → authz_scope=resource (FR-032 pass)"
     },
     {
       "rule": "FR-001",
@@ -105,8 +105,8 @@
       }
     },
     {
-      "id": "s3-get-resource-scoped",
-      "for": "FR-032 mitigated (literal + datadoc on task role)",
+      "id": "s3-write-resource-scoped",
+      "for": "FR-032 mitigated (task_role literal + data-doc)",
       "require": {
         "flow": {
           "authz_scope": "resource",
