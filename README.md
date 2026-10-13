@@ -53,8 +53,9 @@ callRefs and is not asserted here.
 
 | ID | Gap |
 |----|-----|
-| B-43 | FR-007 unverified — secret delivery needs `module.*` refs; not assertable flat |
-| B-44 | Address-keyed mitigated assert — `findings.json` has DFD target ids only (see backlog below) |
+| B-43 | Root-module `aws_ecs_task_definition.app` `container_definitions` not parsed (only module-built JSON) |
+| B-44 | S3 flows need one task definition per plan — fixture keeps a single `aws_ecs_task_definition.app` |
+| B-48 | Mitigated results are keyed by DFD target id, not Terraform address — assert checks mitigated counts, not addresses |
 
 ### Known incidental opens
 
@@ -94,7 +95,7 @@ Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
 
 Assert runs on `push` to `main` and `workflow_dispatch` only.
 
-### Backlog — address-keyed mitigated results
+### B-48 — address-keyed mitigated results
 
 Rule-level mitigated checks that need `(rule, terraform address) → verdict`
 require a client change: write `findings.json` (or a sibling) with every
