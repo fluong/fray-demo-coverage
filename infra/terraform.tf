@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.11"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
 # Plan-only CI provider. LocalStack STS when TF_VAR_aws_sts_endpoint is set.
 # Never apply these fixtures.
 provider "aws" {

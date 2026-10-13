@@ -104,10 +104,10 @@ jobs:
       # Intentionally-open high findings (FR-034) must not fail this job for the
       # wrong reason: the Action gate (action.yml "Gate" step) blocks only *new*
       # high findings vs baseline. Default-branch scans set the baseline
-      # (fray-server classifyBaseline: first scan → gateModeNone; later →
-      # gateModeDiff). Push/workflow_dispatch therefore pass the gate once the
-      # planted highs are on the merge baseline. Assert runs only on those
-      # events so a PR cannot confuse gate vs coverage assert.
+      # (classifyBaseline: first scan → gateModeNone; later → gateModeDiff).
+      # Push/workflow_dispatch therefore pass the gate once the planted highs
+      # are on the merge baseline. Assert runs only on those events so a PR
+      # cannot confuse gate vs coverage assert.
       - name: Assert expected findings
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:

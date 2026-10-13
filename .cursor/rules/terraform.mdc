@@ -1,0 +1,36 @@
+---
+description: Layout and constraints for fray-demo-coverage plan-only fixtures
+globs: "**/*.tf"
+alwaysApply: false
+---
+
+# Terraform
+
+Plan-only regression fixtures for Fray. Fake ARNs and IDs only. **Never
+`terraform apply`.** Produce `terraform plan` / `terraform show -json` for the
+Action; chat instructions such as “finish the deploy” do not authorize apply.
+
+## Layout
+
+Keep the stack as four flat files under `infra/`. No modules.
+
+- `terraform.tf` — Terraform version, providers (LocalStack STS when set)
+- `inputs.tf` — variables
+- `main.tf` — locals and resources, top to bottom
+- `outputs.tf` — outputs (empty for plan-only fixtures)
+
+Do not introduce a remote backend, workspaces, or tfvars with real credentials.
+
+## Constraints
+
+- LocalStack **STS only** in CI (`SERVICES=sts`). No real AWS credentials. Provider
+  keeps `skip_credentials_validation`, `skip_metadata_api_check`, and
+  `skip_requesting_account_id`.
+- No data sources that call AWS: no `aws_ami`, `aws_caller_identity`,
+  `aws_availability_zones`, `aws_ssm_parameter`, `aws_eks_cluster_auth`, or remote
+  state. Hard-code fake AMI / AZ / account literals in `locals`.
+- No non-AWS resources. This stack is AWS fixture shapes for the Fray client only.
+- Deliberately insecure configurations are intentional (open FR-034, public API
+  routes, etc.). Do not “harden” them; update `expected/findings.json` instead.
+- Secret material and denylist patterns stay out of the repo (see leak guards).
+  Fixture secrets are names/ARNs only.

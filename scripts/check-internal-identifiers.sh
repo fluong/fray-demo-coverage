@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fail if fray-server internal identifiers appear in this public demo tree.
+# Fail if private companion internal identifiers appear in this public demo tree.
 #
 # Copied from fluong/fray (same fail-closed contract). One script for CI and
 # local hooks — scans the whole working tree. Do not narrow the path set.
@@ -113,7 +113,7 @@ done
 
 if [[ "$hits" -ne 0 ]]; then
   echo "Internal identifiers must not appear in this public coverage repo." >&2
-  echo "Use fake ARNs/IDs only; keep fray-server names out of fixtures and docs." >&2
+  echo "Use fake ARNs/IDs only; keep private companion names out of fixtures and docs." >&2
   exit 1
 fi
 
