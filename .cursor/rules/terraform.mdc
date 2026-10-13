@@ -6,9 +6,11 @@ alwaysApply: false
 
 # Terraform
 
-Plan-only regression fixtures for Fray. Fake ARNs and IDs only. **Never
-`terraform apply`.** Produce `terraform plan` / `terraform show -json` for the
-Action; chat instructions such as “finish the deploy” do not authorize apply.
+Plan-only regression fixtures for Fray. Fake ARNs and IDs only. **Never run
+`terraform` (or terraform-adjacent tooling) locally** — it can pick up real AWS
+credentials outside CI. **Never `terraform apply`.** CI runs init/plan; prove
+parser shapes with fray client unit tests on synthetic plan JSON. Chat
+instructions such as “finish the deploy” do not authorize apply or a local plan.
 
 ## Layout
 
