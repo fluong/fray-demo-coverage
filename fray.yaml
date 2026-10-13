@@ -1,0 +1,4 @@
+schema_version: fray-config/v1
+# Coverage fixtures declare purposes only when a rule needs them.
+annotations:
+  elements: []
