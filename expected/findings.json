@@ -68,5 +68,79 @@
       "verdict": "mitigated",
       "why": "Internet ALB HTTPS listener authenticate-cognito before forward"
     }
+  ],
+  "known_incidental": [
+    {
+      "rule": "FR-005",
+      "address": "aws_ecs_service.app",
+      "verdict": "open",
+      "why": "ECS fixture uses a mutable image tag (nginx:1.27) so FR-005 stays open; not a coverage target"
+    },
+    {
+      "rule": "FR-009",
+      "address": "aws_secretsmanager_secret.app",
+      "verdict": "open",
+      "why": "Secret has no aws_secretsmanager_secret_rotation; FR-009 open is fixture noise"
+    },
+    {
+      "rule": "FR-003",
+      "address": "aws_ecs_service.app",
+      "verdict": "open",
+      "why": "Task injects DB_PASSWORD via container secrets (env delivery); FR-003 open is fixture noise"
+    }
+  ],
+  "dfd_evidence": [
+    {
+      "id": "cognito-alb-authenticated",
+      "for": "FR-001 @ aws_lb.cognito mitigated",
+      "require": {
+        "flow": {
+          "authz_scope": "authenticated",
+          "to_kind": "load_balancer"
+        }
+      }
+    },
+    {
+      "id": "bedrock-invoke-resource-scoped",
+      "for": "FR-004 mitigated (both Bedrock Lambdas)",
+      "require": {
+        "flow": {
+          "authz_scope": "resource",
+          "to_kind": "llm_api"
+        }
+      }
+    },
+    {
+      "id": "bedrock-region-global",
+      "for": "FR-017 open (global. profile wins combineBedrockRegions)",
+      "require": {
+        "element": {
+          "kind": "llm_api",
+          "attributes": {
+            "region": "global"
+          }
+        }
+      }
+    },
+    {
+      "id": "secret-get-resource-scoped",
+      "for": "FR-007 mitigated",
+      "require": {
+        "flow": {
+          "authz_scope": "resource",
+          "from_kind": "secret_store"
+        }
+      }
+    },
+    {
+      "id": "s3-get-resource-scoped",
+      "for": "FR-032 mitigated",
+      "require": {
+        "flow": {
+          "authz_scope": "resource",
+          "to_kind": "object_storage"
+        }
+      }
+    }
   ]
 }
