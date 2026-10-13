@@ -1,0 +1,8 @@
+fray-demo-coverage
+
+Deliberately insecure, plan-only Terraform fixtures for Fray regression
+coverage. Never terraform apply. Fake ARNs and IDs only; no real secrets.
+
+This directory is original configuration. It does not vendor module or
+provider source. It uses the HashiCorp AWS provider (MPL-2.0) at plan time
+in CI only.
