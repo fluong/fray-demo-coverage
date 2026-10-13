@@ -1,0 +1,72 @@
+name: fray
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: GitHub-hosted runner label (e.g. ubuntu-26.04, ubuntu-latest)
+        required: false
+        default: ubuntu-26.04
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  fray:
+    runs-on: ${{ inputs.runner || 'ubuntu-26.04' }}
+    services:
+      localstack:
+        image: localstack/localstack:4.0
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: sts
+          DEBUG: "0"
+        options: >-
+          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_aws_access_key: test
+      TF_VAR_aws_secret_key: test
+      TF_VAR_aws_sts_endpoint: http://localhost:4566
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: fray
+        uses: fluong/fray@196d1034900870ad80e9a2ae949d09c6ca46b223 # v0.24.0
+        with:
+          api-url: https://api.getfray.dev
+          working-directory: infra
+          config: fray.yaml
+          redaction-key: ${{ secrets.FRAY_REDACTION_KEY }}
+          show-payload: true
+
+      # Intentionally-open high findings (FR-034) must not fail this job for the
+      # wrong reason: the Action gate (action.yml "Gate" step) blocks only *new*
+      # high findings vs baseline. Default-branch scans set the baseline
+      # (fray-server classifyBaseline: first scan → gateModeNone; later →
+      # gateModeDiff). Push/workflow_dispatch therefore pass the gate once the
+      # planted highs are on the merge baseline. Assert runs only on those
+      # events so a PR cannot confuse gate vs coverage assert.
+      - name: Assert expected findings
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          HAS_SARIF: ${{ steps.fray.outputs.has-sarif }}
+          SARIF_FILE: ${{ steps.fray.outputs.sarif-file }}
+        run: bash scripts/assert-findings.sh

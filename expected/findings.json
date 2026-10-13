@@ -1,0 +1,72 @@
+{
+  "schema_version": "coverage-expected/v1",
+  "findings": [
+    {
+      "rule": "FR-034",
+      "address": "aws_instance.bastion",
+      "verdict": "open",
+      "why": "Public IP + SG TCP/22 from 0.0.0.0/0"
+    },
+    {
+      "rule": "FR-034",
+      "address": "aws_autoscaling_group.rdp",
+      "verdict": "open",
+      "why": "LT public NI ($Latest) + SG TCP/3389 from 0.0.0.0/0"
+    },
+    {
+      "rule": "FR-034",
+      "address": "aws_eks_node_group.workers",
+      "verdict": "open",
+      "why": "remote_access ec2_ssh_key without source_security_group_ids in a public subnet"
+    },
+    {
+      "rule": "FR-017",
+      "address": "signal:iam_service:bedrock",
+      "verdict": "open",
+      "match": "rule",
+      "why": "Any global. inference profile makes combineBedrockRegions return global"
+    },
+    {
+      "rule": "FR-004",
+      "address": "aws_iam_role_policy.bedrock_pinned",
+      "verdict": "mitigated",
+      "why": "InvokeModel scoped to one foundation-model ARN"
+    },
+    {
+      "rule": "FR-004",
+      "address": "aws_iam_role_policy.bedrock_global",
+      "verdict": "mitigated",
+      "why": "InvokeModel scoped to one inference-profile ARN"
+    },
+    {
+      "rule": "FR-007",
+      "address": "aws_iam_role_policy.app",
+      "verdict": "mitigated",
+      "why": "GetSecretValue on secret:<name>-* for the plan secret"
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_iam_role_policy.app",
+      "verdict": "mitigated",
+      "why": "s3:GetObject on arn:aws:s3:::<bucket>/* for the plan bucket"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_apigatewayv2_route.public",
+      "verdict": "open",
+      "why": "HTTP API route authorization_type NONE"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_lambda_function_url.open",
+      "verdict": "open",
+      "why": "Function URL authorization_type NONE"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_lb.cognito",
+      "verdict": "mitigated",
+      "why": "Internet ALB HTTPS listener authenticate-cognito before forward"
+    }
+  ]
+}
