@@ -8,7 +8,27 @@ as documented below. **Never `terraform apply`.**
 
 Catch silent verdict regressions across Fray releases: CI plans this root with
 LocalStack STS (same shape as `fray-demo-aws`), runs Fray Action, then asserts
-`expected/findings.json` against the Action SARIF output.
+`expected/findings.json` against the Action outputs under
+`${runner.temp}/fray-out`.
+
+## Leak guards
+
+Same fail-closed checks as public `fluong/fray` (gitleaks + internal-identifier
+denylist). `fray-demo-aws` does not ship these yet; this repo mirrors `fray`.
+
+```bash
+./scripts/install-hooks.sh   # once per clone; sets core.hooksPath=.githooks
+```
+
+Pre-push refuses the push on a gitleaks or denylist hit. Requires `gitleaks` on
+`PATH` (`brew install gitleaks`). Patterns come from the `FRAY_DENYLIST`
+repository secret (CI) or `FRAY_DENYLIST` / `~/.config/fray/denylist` locally —
+**never committed** (patterns name private identifiers). Missing list fails
+closed.
+
+CI runs the same pair in the `guards` job in `.github/workflows/fray.yml`.
+Fork PRs cannot read the denylist secret; a maintainer re-runs from a trusted
+context.
 
 ## Expected findings
 
@@ -26,21 +46,55 @@ LocalStack STS (same shape as `fray-demo-aws`), runs Fray Action, then asserts
 | FR-001 | `aws_lambda_function_url.open` | open | Function URL `authorization_type = NONE` |
 | FR-001 | `aws_lb.cognito` | mitigated | Cognito-authenticated HTTPS listener on an internet ALB |
 
+### Known incidental opens
+
+Fixture noise that must stay open in SARIF but is not a coverage target.
+Listed under `known_incidental` in `expected/findings.json` (exact-set assert).
+
+| Rule | Address | Why |
+|------|---------|-----|
+| FR-005 | `aws_ecs_service.app` | Mutable `nginx:1.27` tag |
+| FR-009 | `aws_secretsmanager_secret.app` | No rotation resource |
+| FR-003 | `aws_ecs_service.app` | `DB_PASSWORD` via container secrets (env) |
+
 ## How the assert works
 
 Fray Action exposes (`action.yml` outputs):
 
-- `has-sarif` — whether `${runner.temp}/fray-out/findings.sarif` was written
-- `sarif-file` — absolute path to that SARIF file
+- `has-sarif` — whether `findings.sarif` was written
+- `sarif-file` — absolute path to `${runner.temp}/fray-out/findings.sarif`
 
-`scripts/assert-findings.sh` reads those outputs. SARIF contains **open**
-findings only (`render.SARIF`); each result’s `partialFingerprints["fray/v1"]`
-is `sha256("<rule_id>|<cause Terraform address>")`. For each expected row:
+Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
+`action/scan.sh`):
 
-- **open** → fingerprint (or `match: rule` for signal elements) must be present
-- **mitigated** → must be **absent** from SARIF (mitigated findings are omitted)
+| File | Contents |
+|------|----------|
+| `findings.json` | All findings: `rule_id`, `target` (DFD id), `status`, `severity` — **no Terraform addresses** |
+| `findings.sarif` | **Open** findings only; `partialFingerprints["fray/v1"]` = `sha256(rule\|cause)` |
+| `threat-model.md` | Human report |
+| `pr-comment.md` | PR comment body |
+| `payload.json` | Exact POST body when `show-payload: true` (redacted DFD) |
+| `enrollment.json` | Enrollment soft-skip marker only |
+| `base-source/` | Base-commit tree when comparing a PR |
+
+`scripts/assert-findings.sh`:
+
+1. **Open (coverage):** SARIF fingerprint (or `match: rule`) present.
+2. **Exact open set:** every SARIF open is an expected open or `known_incidental`.
+3. **Mitigated:** `findings.json` has `status=mitigated` for that rule (count ≥ expected rows). Address cannot be checked — wire format has DFD target ids only.
+4. **DFD evidence:** `payload.json` flows/elements carry the attributes that drive mitigated/open drivers (`authz_scope`, `region`, kinds).
 
 Assert runs on `push` to `main` and `workflow_dispatch` only.
+
+### Backlog — address-keyed mitigated results
+
+Rule-level mitigated checks that need `(rule, terraform address) → verdict`
+require a client change: write `findings.json` (or a sibling) with every
+evaluated rule’s verdict and cause address, not only DFD target ids. Smallest
+change: extend `apiv1.Finding` / `MarshalFindings` with an optional
+`cause_address` (local-only, never POSTed) populated from `render.CauseAddress`
+when writing `-out`. Track as a Fray client backlog item — **not implemented
+here**.
 
 ### Gate vs planted highs
 
@@ -56,29 +110,25 @@ sets that baseline (`is_default_branch`); the first scan uses gate mode
 When a Fray release intentionally changes a verdict:
 
 1. Confirm the new verdict against rule docs / release notes.
-2. Edit the row in `expected/findings.json` (and the table above).
+2. Edit the row (and tables above). New unexpected opens → `known_incidental`
+   with a reason, or fix the fixture.
 3. Re-run `workflow_dispatch` (or push to `main`) and confirm assert passes.
-
-Do not waive planted findings to silence the assert — change the expected row
-or the fixture.
 
 ## Enrollment
 
 Add this repository to the existing Fray GitHub App installation. Scan
 admission is automatic via the `installation_repositories` webhook (not the
-dashboard B-27 allowlist). Free-plan orgs have a 3-repo cap unless
-`design_partner`.
+dashboard B-27 allowlist). Free-plan orgs have a **3 active
+`installation_repos` per org** cap unless `design_partner`.
 
 ## Local plan (optional)
 
 ```bash
 cd infra
-# Dummy AWS_* as in CI; no apply.
 export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1
 export AWS_EC2_METADATA_DISABLED=true
 terraform init -backend=false
 terraform validate
-# terraform plan needs LocalStack STS or skip — CI uses the workflow service.
 ```
 
 Never apply.
