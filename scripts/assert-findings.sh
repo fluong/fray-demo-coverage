@@ -69,10 +69,11 @@ for r in results:
 
 errors: list[str] = []
 
-# --- expected open / mitigated rows ---
+# --- expected open / mitigated / unverified rows ---
 expected_open_fps: set[str] = set()
 expected_open_rules_match: set[str] = set()  # match:"rule" opens
-mitigated_by_rule: dict[str, int] = {}
+# (rule, status) → count; status is mitigated or unverified
+status_want: dict[tuple[str, str], int] = {}
 
 for row in exp.get("findings") or []:
     rule = row["rule"]
@@ -96,13 +97,16 @@ for row in exp.get("findings") or []:
                     f"  expected fray/v1={fp}\n"
                     f"  got for {rule}: {got}"
                 )
-    else:
-        # Mitigated/unverified must not appear as open fingerprints.
+    elif verdict in ("mitigated", "unverified"):
+        # Must not appear as open fingerprints.
         if match != "rule":
             fp = fingerprint(rule, address)
             if fp in sarif_fps:
                 errors.append(f"SARIF has finding that should be {verdict}: {label} fp={fp}")
-        mitigated_by_rule[rule] = mitigated_by_rule.get(rule, 0) + 1
+        key = (rule, verdict)
+        status_want[key] = status_want.get(key, 0) + 1
+    else:
+        errors.append(f"unknown verdict {verdict!r} for {label}")
 
 # --- known incidental opens (allowed extras) ---
 incidental_fps: set[str] = set()
@@ -130,12 +134,13 @@ for fp, rule in sorted(sarif_fps.items(), key=lambda x: (x[1], x[0])):
         f"(add to findings or known_incidental)"
     )
 
-# --- findings.json: positive status for mitigated rows (no addresses on wire) ---
+# --- findings.json: status counts distinguish mitigated vs unverified ---
 findings_file = Path(findings_path)
-if mitigated_by_rule:
+if status_want:
     if not findings_file.is_file():
         errors.append(
-            f"mitigated rows require {findings_path} (cmd/fray writes findings.json to -out); missing"
+            f"mitigated/unverified rows require {findings_path} "
+            f"(cmd/fray writes findings.json to -out); missing"
         )
     else:
         doc = json.load(open(findings_file))
@@ -143,11 +148,11 @@ if mitigated_by_rule:
         for f in doc.get("findings") or []:
             key = (f.get("rule_id") or "", f.get("status") or "")
             status_counts[key] = status_counts.get(key, 0) + 1
-        for rule, want_n in sorted(mitigated_by_rule.items()):
-            got = status_counts.get((rule, "mitigated"), 0)
+        for (rule, status), want_n in sorted(status_want.items()):
+            got = status_counts.get((rule, status), 0)
             if got < want_n:
                 errors.append(
-                    f"findings.json: want ≥{want_n} mitigated {rule}, got {got} "
+                    f"findings.json: want ≥{want_n} {status} {rule}, got {got} "
                     f"(target ids only — no Terraform address on wire)"
                 )
 
@@ -182,7 +187,10 @@ if dfd_checks:
                 if "flow" in req:
                     want = req["flow"]
                     for fl in flows:
-                        if want.get("authz_scope") and fl.get("authz_scope") != want["authz_scope"]:
+                        if want.get("authz_scope_absent"):
+                            if fl.get("authz_scope") is not None:
+                                continue
+                        elif want.get("authz_scope") and fl.get("authz_scope") != want["authz_scope"]:
                             continue
                         if want.get("to_kind") and el_kind(fl.get("to") or "") != want["to_kind"]:
                             continue

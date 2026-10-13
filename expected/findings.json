@@ -40,15 +40,39 @@
     },
     {
       "rule": "FR-007",
-      "address": "aws_iam_role_policy.app",
+      "address": "aws_iam_role_policy.known",
       "verdict": "mitigated",
-      "why": "GetSecretValue on secret:<name>-* for the plan secret"
+      "why": "Literal secret:<name>-* ARN string known at plan (IAM shape a)"
     },
     {
       "rule": "FR-032",
-      "address": "aws_iam_role_policy.app",
+      "address": "aws_iam_role_policy.known",
       "verdict": "mitigated",
-      "why": "s3:GetObject on arn:aws:s3:::<bucket>/* for the plan bucket"
+      "why": "Literal s3:::bucket/* ARN string known at plan (IAM shape a)"
+    },
+    {
+      "rule": "FR-007",
+      "address": "aws_iam_role_policy.datadoc",
+      "verdict": "mitigated",
+      "why": "data.aws_iam_policy_document null resources + module callRefs (IAM shape b)"
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_iam_role_policy.datadoc",
+      "verdict": "mitigated",
+      "why": "data.aws_iam_policy_document null resources + module callRefs (IAM shape b)"
+    },
+    {
+      "rule": "FR-007",
+      "address": "aws_iam_role_policy.unknown_refs",
+      "verdict": "unverified",
+      "why": "jsonencode ARN refs → policy unknown; secret delivery flow omits authz_scope (IAM shape c)"
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_iam_role_policy.unknown_refs",
+      "verdict": "unverified",
+      "why": "Known literal S3 grant + unknown jsonencode sibling → bucket flow omits authz_scope (IAM shape c)"
     },
     {
       "rule": "FR-001",
@@ -72,21 +96,57 @@
   "known_incidental": [
     {
       "rule": "FR-005",
-      "address": "aws_ecs_service.app",
+      "address": "module.ecs_known.aws_ecs_service.app",
       "verdict": "open",
-      "why": "ECS fixture uses a mutable image tag (nginx:1.27) so FR-005 stays open; not a coverage target"
+      "why": "Mutable nginx:1.27 tag; fixture noise"
+    },
+    {
+      "rule": "FR-005",
+      "address": "module.ecs_datadoc.aws_ecs_service.app",
+      "verdict": "open",
+      "why": "Mutable nginx:1.27 tag; fixture noise"
+    },
+    {
+      "rule": "FR-005",
+      "address": "module.ecs_unknown.aws_ecs_service.app",
+      "verdict": "open",
+      "why": "Mutable nginx:1.27 tag; fixture noise"
     },
     {
       "rule": "FR-009",
-      "address": "aws_secretsmanager_secret.app",
+      "address": "module.secret_known.aws_secretsmanager_secret.this",
       "verdict": "open",
-      "why": "Secret has no aws_secretsmanager_secret_rotation; FR-009 open is fixture noise"
+      "why": "No rotation resource; fixture noise"
+    },
+    {
+      "rule": "FR-009",
+      "address": "module.secret_datadoc.aws_secretsmanager_secret.this",
+      "verdict": "open",
+      "why": "No rotation resource; fixture noise"
+    },
+    {
+      "rule": "FR-009",
+      "address": "module.secret_unknown.aws_secretsmanager_secret.this",
+      "verdict": "open",
+      "why": "No rotation resource; fixture noise"
     },
     {
       "rule": "FR-003",
-      "address": "aws_ecs_service.app",
+      "address": "module.ecs_known.aws_ecs_service.app",
       "verdict": "open",
-      "why": "Task injects DB_PASSWORD via container secrets (env delivery); FR-003 open is fixture noise"
+      "why": "DB_PASSWORD via container secrets (env); fixture noise"
+    },
+    {
+      "rule": "FR-003",
+      "address": "module.ecs_datadoc.aws_ecs_service.app",
+      "verdict": "open",
+      "why": "DB_PASSWORD via container secrets (env); fixture noise"
+    },
+    {
+      "rule": "FR-003",
+      "address": "module.ecs_unknown.aws_ecs_service.app",
+      "verdict": "open",
+      "why": "DB_PASSWORD via container secrets (env); fixture noise"
     }
   ],
   "dfd_evidence": [
@@ -124,7 +184,7 @@
     },
     {
       "id": "secret-get-resource-scoped",
-      "for": "FR-007 mitigated",
+      "for": "FR-007 mitigated (shapes a+b)",
       "require": {
         "flow": {
           "authz_scope": "resource",
@@ -134,10 +194,30 @@
     },
     {
       "id": "s3-get-resource-scoped",
-      "for": "FR-032 mitigated",
+      "for": "FR-032 mitigated (shapes a+b)",
       "require": {
         "flow": {
           "authz_scope": "resource",
+          "to_kind": "object_storage"
+        }
+      }
+    },
+    {
+      "id": "secret-get-unverified-no-authz",
+      "for": "FR-007 unverified (shape c: unknown policy omits authz_scope)",
+      "require": {
+        "flow": {
+          "authz_scope_absent": true,
+          "from_kind": "secret_store"
+        }
+      }
+    },
+    {
+      "id": "s3-get-unverified-no-authz",
+      "for": "FR-032 unverified (shape c: unknown sibling omits authz_scope)",
+      "require": {
+        "flow": {
+          "authz_scope_absent": true,
           "to_kind": "object_storage"
         }
       }

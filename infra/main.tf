@@ -33,14 +33,6 @@ locals {
       Principal = { Service = "lambda.amazonaws.com" }
     }]
   })
-  assume_ecs = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { Service = "ecs-tasks.amazonaws.com" }
-    }]
-  })
 }
 
 resource "aws_vpc" "this" {
@@ -283,97 +275,184 @@ resource "aws_lambda_function" "bedrock_global" {
 }
 
 # ---------------------------------------------------------------------------
-# (e) aws_iam_role_policy jsonencode — FR-007 / FR-032 mitigated
-# s3:GetObject on this plan's bucket/*; GetSecretValue on secret:<name>-*.
-# Needs an ECS task so Fray emits secret/bucket flows.
-# Same role for exec+task so both flows attribute to aws_iam_role_policy.app.
-# Expected: FR-007 + FR-032 mitigated on aws_iam_role_policy.app
+# (e) Three IAM shapes for FR-007 / FR-032 (B-35)
+#
+# Secret delivery flows need module.* valueFrom on a *root* module call's
+# container_definitions (Fray readRootContainers). Separate ECS modules so
+# each shape has its own compute → secret / bucket flows.
+#
+# a) jsonencode with LITERAL ARN strings → known at plan → resource → mitigated
+# b) data.aws_iam_policy_document with resource refs → null + callRefs → mitigated
+# c) jsonencode with ARN REFERENCES → policy unknown; secret flow without
+#    authz_scope → FR-007 unverified. A known literal S3 grant plus the unknown
+#    sibling omits scope on the bucket flow → FR-032 unverified.
 # ---------------------------------------------------------------------------
 
-resource "aws_s3_bucket" "uploads" {
-  bucket = "${local.name}-uploads-fake"
+module "secret_known" {
+  source = "./modules/sm_secret"
+  name   = "${local.name}/known/db"
 }
 
-resource "aws_secretsmanager_secret" "app" {
-  name = "${local.name}/app/db"
+module "secret_datadoc" {
+  source = "./modules/sm_secret"
+  name   = "${local.name}/datadoc/db"
 }
 
-resource "aws_iam_role" "ecs_task" {
-  name               = "${local.name}-ecs-task"
-  assume_role_policy = local.assume_ecs
+module "secret_unknown" {
+  source = "./modules/sm_secret"
+  name   = "${local.name}/unknown/db"
 }
 
+resource "aws_s3_bucket" "uploads_known" {
+  bucket = "${local.name}-uploads-known-fake"
+}
 
+# Module-wrapped so data.aws_iam_policy_document null resources resolve via
+# callRefs(module.ecs_datadoc) → module.uploads_datadoc (elementsFromRefs).
+module "uploads_datadoc" {
+  source = "./modules/s3_bucket"
+  bucket = "${local.name}-uploads-datadoc-fake"
+}
 
-resource "aws_iam_role_policy" "app" {
-  name = "app-scoped"
-  role = aws_iam_role.ecs_task.id
+resource "aws_s3_bucket" "uploads_unknown" {
+  bucket = "${local.name}-uploads-unknown-fake"
+}
+
+module "ecs_known" {
+  source     = "./modules/ecs_app"
+  name       = "${local.name}-known"
+  vpc_id     = aws_vpc.this.id
+  subnet_ids = [aws_subnet.public.id]
+  bucket_arn = aws_s3_bucket.uploads_known.arn
+
+  container_definitions = {
+    app = {
+      essential = true
+      image     = "public.ecr.aws/docker/library/nginx:1.27"
+      secrets = [{
+        name      = "DB_PASSWORD"
+        valueFrom = module.secret_known.arn
+      }]
+    }
+  }
+}
+
+module "ecs_datadoc" {
+  source     = "./modules/ecs_app"
+  name       = "${local.name}-datadoc"
+  vpc_id     = aws_vpc.this.id
+  subnet_ids = [aws_subnet.public.id]
+  bucket_arn = module.uploads_datadoc.arn
+
+  container_definitions = {
+    app = {
+      essential = true
+      image     = "public.ecr.aws/docker/library/nginx:1.27"
+      secrets = [{
+        name      = "DB_PASSWORD"
+        valueFrom = module.secret_datadoc.arn
+      }]
+    }
+  }
+}
+
+module "ecs_unknown" {
+  source     = "./modules/ecs_app"
+  name       = "${local.name}-unknown"
+  vpc_id     = aws_vpc.this.id
+  subnet_ids = [aws_subnet.public.id]
+  bucket_arn = aws_s3_bucket.uploads_unknown.arn
+
+  container_definitions = {
+    app = {
+      essential = true
+      image     = "public.ecr.aws/docker/library/nginx:1.27"
+      secrets = [{
+        name      = "DB_PASSWORD"
+        valueFrom = module.secret_unknown.arn
+      }]
+    }
+  }
+}
+
+# (a) Literal ARN strings — known JSON at plan time.
+resource "aws_iam_role_policy" "known" {
+  name = "known-literal-arns"
+  role = module.ecs_known.task_role_id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
         Action   = ["s3:GetObject"]
-        Resource = ["${aws_s3_bucket.uploads.arn}/*"]
+        Resource = ["arn:aws:s3:::${local.name}-uploads-known-fake/*"]
       },
       {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
-        # Name-prefix form Fray treats as resource-scoped (secret:<name>-*).
-        Resource = ["arn:aws:secretsmanager:us-east-1:123456789012:secret:${aws_secretsmanager_secret.app.name}-*"]
+        Resource = [
+          "arn:aws:secretsmanager:us-east-1:123456789012:secret:${local.name}/known/db-*"
+        ]
       }
     ]
   })
 }
 
-
-resource "aws_ecs_cluster" "this" {
-  name = local.name
+# (b) data.aws_iam_policy_document — resources are refs (null in plan); Fray
+# resolves via module callRefs (secret + bucket_arn on module.ecs_datadoc).
+data "aws_iam_policy_document" "datadoc" {
+  statement {
+    sid       = "S3Get"
+    actions   = ["s3:GetObject"]
+    resources = ["${module.uploads_datadoc.arn}/*"]
+  }
+  statement {
+    sid       = "SecretGet"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [module.secret_datadoc.arn]
+  }
 }
 
-resource "aws_ecs_task_definition" "app" {
-  family                   = local.name
-  requires_compatibilities = ["FARGATE"]
-  network_mode             = "awsvpc"
-  cpu                      = "256"
-  memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
+resource "aws_iam_role_policy" "datadoc" {
+  name   = "datadoc-refs"
+  role   = module.ecs_datadoc.task_role_id
+  policy = data.aws_iam_policy_document.datadoc.json
+}
 
-  container_definitions = jsonencode([{
-    name      = "app"
-    image     = "public.ecr.aws/docker/library/nginx:1.27"
-    essential = true
-    secrets = [{
-      name      = "DB_PASSWORD"
-      valueFrom = aws_secretsmanager_secret.app.arn
+# (c) Unknown jsonencode (ARN refs) + known literal S3 so the bucket flow
+# exists but authz_scope is omitted (unknown sibling). Secret flow from
+# container injection also omits authz_scope.
+resource "aws_iam_role_policy" "unknown_s3_base" {
+  name = "unknown-s3-literal-base"
+  role = module.ecs_unknown.task_role_id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject"]
+      Resource = ["arn:aws:s3:::${local.name}-uploads-unknown-fake/*"]
     }]
-  }])
+  })
 }
 
-resource "aws_security_group" "ecs" {
-  name   = "${local.name}-ecs"
-  vpc_id = aws_vpc.this.id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_ecs_service" "app" {
-  name            = local.name
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = [aws_subnet.public.id]
-    security_groups  = [aws_security_group.ecs.id]
-    assign_public_ip = true
-  }
+resource "aws_iam_role_policy" "unknown_refs" {
+  name = "unknown-jsonencode-refs"
+  role = module.ecs_unknown.task_role_id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = ["${aws_s3_bucket.uploads_unknown.arn}/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = [module.secret_unknown.arn]
+      }
+    ]
+  })
 }
 
 # ---------------------------------------------------------------------------

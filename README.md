@@ -40,8 +40,12 @@ context.
 | FR-017 | `signal:iam_service:bedrock` | open | `global.` inference profile → combined Bedrock region `global` |
 | FR-004 | `aws_iam_role_policy.bedrock_pinned` | mitigated | InvokeModel on one eu-west-1 foundation-model ARN |
 | FR-004 | `aws_iam_role_policy.bedrock_global` | mitigated | InvokeModel on one `global.` inference-profile ARN |
-| FR-007 | `aws_iam_role_policy.app` | mitigated | `GetSecretValue` on `secret:<name>-*` for the plan secret |
-| FR-032 | `aws_iam_role_policy.app` | mitigated | `s3:GetObject` on `arn:aws:s3:::<bucket>/*` for the plan bucket |
+| FR-007 | `aws_iam_role_policy.known` | mitigated | Literal `secret:<name>-*` ARN string (IAM shape a) |
+| FR-032 | `aws_iam_role_policy.known` | mitigated | Literal `s3:::bucket/*` ARN string (IAM shape a) |
+| FR-007 | `aws_iam_role_policy.datadoc` | mitigated | `data.aws_iam_policy_document` + module callRefs (shape b) |
+| FR-032 | `aws_iam_role_policy.datadoc` | mitigated | `data.aws_iam_policy_document` + module callRefs (shape b) |
+| FR-007 | `aws_iam_role_policy.unknown_refs` | unverified | jsonencode ARN refs → unknown policy; authz_scope omitted (shape c) |
+| FR-032 | `aws_iam_role_policy.unknown_refs` | unverified | Known S3 grant + unknown sibling omits authz_scope (shape c) |
 | FR-001 | `aws_apigatewayv2_route.public` | open | HTTP API route `authorization_type = NONE` |
 | FR-001 | `aws_lambda_function_url.open` | open | Function URL `authorization_type = NONE` |
 | FR-001 | `aws_lb.cognito` | mitigated | Cognito-authenticated HTTPS listener on an internet ALB |
@@ -53,9 +57,9 @@ Listed under `known_incidental` in `expected/findings.json` (exact-set assert).
 
 | Rule | Address | Why |
 |------|---------|-----|
-| FR-005 | `aws_ecs_service.app` | Mutable `nginx:1.27` tag |
-| FR-009 | `aws_secretsmanager_secret.app` | No rotation resource |
-| FR-003 | `aws_ecs_service.app` | `DB_PASSWORD` via container secrets (env) |
+| FR-005 | `module.ecs_{known,datadoc,unknown}.aws_ecs_service.app` | Mutable `nginx:1.27` tag |
+| FR-009 | `module.secret_{known,datadoc,unknown}.aws_secretsmanager_secret.this` | No rotation resource |
+| FR-003 | `module.ecs_{known,datadoc,unknown}.aws_ecs_service.app` | `DB_PASSWORD` via container secrets (env) |
 
 ## How the assert works
 

@@ -89,6 +89,18 @@ jobs:
           redaction-key: ${{ secrets.FRAY_REDACTION_KEY }}
           show-payload: true
 
+      - name: Upload fray-out artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fray-out
+          path: |
+            ${{ runner.temp }}/fray-out/payload.json
+            ${{ runner.temp }}/fray-out/findings.json
+            ${{ runner.temp }}/fray-out/findings.sarif
+          if-no-files-found: warn
+          retention-days: 14
+
       # Intentionally-open high findings (FR-034) must not fail this job for the
       # wrong reason: the Action gate (action.yml "Gate" step) blocks only *new*
       # high findings vs baseline. Default-branch scans set the baseline
