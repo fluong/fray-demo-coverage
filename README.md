@@ -11,6 +11,9 @@ LocalStack STS (same shape as `fray-demo-aws`), runs Fray Action, then asserts
 `expected/findings.json` against the Action outputs under
 `${runner.temp}/fray-out`.
 
+A second job scans the same stack under `stack: alt` to check that stacks are
+kept apart (separate baseline, comment marker and Code Scanning category).
+
 ## Leak guards
 
 Same fail-closed checks as public `fluong/fray` (gitleaks + internal-identifier
