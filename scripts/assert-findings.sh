@@ -6,7 +6,8 @@
 #   sarif-file — absolute path to ${runner.temp}/fray-out/findings.sarif
 #
 # Files the client writes to -out / FRAY_OUT (cmd/fray/remote.go + action/scan.sh):
-#   findings.json     — all findings (rule_id, target id, status, severity); no addresses
+#   findings.json     — all findings (rule_id, target, status, severity) plus
+#                       optional local `addresses` (Terraform addresses; fray ≥ v0.26.0)
 #   findings.sarif    — open findings only; partialFingerprints["fray/v1"]
 #   threat-model.md
 #   pr-comment.md
@@ -16,8 +17,8 @@
 #
 # Open rows: SARIF fingerprint (or match:"rule") must be present; exact-set —
 # every SARIF open must be expected open or known_incidental.
-# Mitigated rows: require findings.json status=mitigated for the rule (no
-# address on wire), plus optional dfd_evidence checks against payload.json.
+# Mitigated / unverified / waived: findings.json status counts plus
+# addresses CONTAINS the expected Terraform address (v0.26.0+).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -96,11 +97,13 @@ for r in results:
 
 errors: list[str] = []
 
-# --- expected open / mitigated / unverified rows ---
+# --- expected open / mitigated / unverified / waived rows ---
 expected_open_fps: set[str] = set()
 expected_open_rules_match: set[str] = set()  # match:"rule" opens
-# (rule, status) → count; status is mitigated or unverified
+# (rule, status) → count; status is mitigated, unverified, or waived
 status_want: dict[tuple[str, str], int] = {}
+# Non-open rows that must match by Terraform address in findings.json.
+address_want: list[tuple[str, str, str]] = []  # (rule, status, address)
 
 for row in exp.get("findings") or []:
     rule = row["rule"]
@@ -124,7 +127,7 @@ for row in exp.get("findings") or []:
                     f"  expected fray/v1={fp}\n"
                     f"  got for {rule}: {got}"
                 )
-    elif verdict in ("mitigated", "unverified"):
+    elif verdict in ("mitigated", "unverified", "waived"):
         # Must not appear as open fingerprints.
         if match != "rule":
             fp = fingerprint(rule, address)
@@ -132,6 +135,7 @@ for row in exp.get("findings") or []:
                 errors.append(f"SARIF has finding that should be {verdict}: {label} fp={fp}")
         key = (rule, verdict)
         status_want[key] = status_want.get(key, 0) + 1
+        address_want.append((rule, verdict, address))
     else:
         errors.append(f"unknown verdict {verdict!r} for {label}")
 
@@ -161,27 +165,53 @@ for fp, rule in sorted(sarif_fps.items(), key=lambda x: (x[1], x[0])):
         f"(add to findings or known_incidental)"
     )
 
-# --- findings.json: status counts distinguish mitigated vs unverified ---
+# --- findings.json: status counts + address membership (fray ≥ v0.26.0) ---
 findings_file = Path(findings_path)
-if status_want:
+if status_want or address_want:
     if not findings_file.is_file():
         errors.append(
-            f"mitigated/unverified rows require {findings_path} "
+            f"mitigated/unverified/waived rows require {findings_path} "
             f"(cmd/fray writes findings.json to -out); missing"
         )
     else:
         doc = json.load(open(findings_file))
+        raw_findings = doc.get("findings") or []
         status_counts: dict[tuple[str, str], int] = {}
-        for f in doc.get("findings") or []:
+        # (rule, status) → list of address lists seen (for error reporting)
+        addrs_by_key: dict[tuple[str, str], list[list[str]]] = {}
+        any_addresses_field = False
+        for f in raw_findings:
             key = (f.get("rule_id") or "", f.get("status") or "")
             status_counts[key] = status_counts.get(key, 0) + 1
+            if "addresses" in f:
+                any_addresses_field = True
+                addrs_by_key.setdefault(key, []).append(list(f.get("addresses") or []))
+            else:
+                addrs_by_key.setdefault(key, []).append([])
+
         for (rule, status), want_n in sorted(status_want.items()):
             got = status_counts.get((rule, status), 0)
             if got < want_n:
                 errors.append(
-                    f"findings.json: want ≥{want_n} {status} {rule}, got {got} "
-                    f"(target ids only — no Terraform address on wire)"
+                    f"findings.json: want ≥{want_n} {status} {rule}, got {got}"
                 )
+
+        if address_want and not any_addresses_field:
+            errors.append(
+                f"{findings_path}: no finding has an `addresses` field — "
+                f"pinned fray is older than v0.26.0 (need local Terraform addresses)"
+            )
+        else:
+            for rule, status, address in address_want:
+                key = (rule, status)
+                seen_lists = addrs_by_key.get(key) or []
+                matched = any(address in addrs for addrs in seen_lists)
+                if not matched:
+                    flat = sorted({a for addrs in seen_lists for a in addrs}) or ["(none)"]
+                    errors.append(
+                        f"expected {rule} {status} at {address}: not found "
+                        f"(addresses seen for {rule}/{status}: {flat})"
+                    )
 
 # --- payload.json DFD attribute evidence for mitigated drivers ---
 payload_file = Path(payload_path)

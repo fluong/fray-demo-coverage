@@ -28,33 +28,33 @@
     },
     {
       "rule": "FR-004",
-      "address": "aws_iam_role_policy.bedrock_pinned",
+      "address": "aws_lambda_function.bedrock_pinned",
       "verdict": "mitigated",
-      "why": "InvokeModel scoped to one foundation-model ARN"
+      "why": "InvokeModel scoped to one foundation-model ARN (finding addresses the caller Lambda; IAM policy is not a DFD element)"
     },
     {
       "rule": "FR-004",
-      "address": "aws_iam_role_policy.bedrock_global",
+      "address": "aws_lambda_function.bedrock_global",
       "verdict": "mitigated",
-      "why": "InvokeModel scoped to one inference-profile ARN"
+      "why": "InvokeModel scoped to one inference-profile ARN (finding addresses the caller Lambda; IAM policy is not a DFD element)"
     },
     {
       "rule": "FR-032",
-      "address": "aws_iam_role_policy.known",
+      "address": "aws_s3_bucket.uploads",
       "verdict": "mitigated",
-      "why": "app task_role: literal + data-doc PutObject/DeleteObject on uploads → authz_scope=resource"
+      "why": "app task_role: literal + data-doc PutObject/DeleteObject on uploads → authz_scope=resource (finding addresses the bucket To-element)"
     },
     {
       "rule": "FR-032",
-      "address": "aws_iam_role_policy.worker_known",
+      "address": "aws_s3_bucket.worker",
       "verdict": "mitigated",
-      "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket → authz_scope=resource (B-44)"
+      "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket → authz_scope=resource (finding addresses the bucket To-element; B-44)"
     },
     {
       "rule": "FR-007",
-      "address": "aws_iam_role_policy.ecs_exec_secrets",
+      "address": "aws_ecs_service.app",
       "verdict": "mitigated",
-      "why": "execution role GetSecretValue scoped to app secret name-* (B-43 root secret delivery)"
+      "why": "execution role GetSecretValue scoped to app secret name-* (finding addresses the service To-element; B-43 root secret delivery)"
     },
     {
       "rule": "FR-001",
