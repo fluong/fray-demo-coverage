@@ -145,3 +145,7 @@ terraform validate
 ```
 
 Never apply.
+
+## Contributing
+
+The provider lock file is generated in CI (Actions → lock → Run workflow), never locally.
