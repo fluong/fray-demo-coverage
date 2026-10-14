@@ -40,21 +40,24 @@ context.
 | FR-017 | `signal:iam_service:bedrock` | open | `global.` inference profile → combined Bedrock region `global` |
 | FR-004 | `aws_iam_role_policy.bedrock_pinned` | mitigated | InvokeModel on one eu-west-1 foundation-model ARN |
 | FR-004 | `aws_iam_role_policy.bedrock_global` | mitigated | InvokeModel on one `global.` inference-profile ARN |
-| FR-032 | `aws_iam_role_policy.known` (+ `datadoc`) | mitigated | Literal + plan-time data-doc ARNs on task role; one root task def |
+| FR-032 | `aws_iam_role_policy.known` (+ `datadoc`) | mitigated | Literal + plan-time data-doc ARNs on app task role → uploads |
+| FR-032 | `aws_iam_role_policy.worker_known` (+ `worker_datadoc`) | mitigated | Same IAM shapes on worker task role → worker bucket (B-44) |
 | FR-001 | `aws_apigatewayv2_route.public` | open | HTTP API route `authorization_type = NONE` |
 | FR-001 | `aws_lambda_function_url.open` | open | Function URL `authorization_type = NONE` |
 | FR-001 | `aws_lb.cognito` | mitigated | Cognito-authenticated HTTPS listener on an internet ALB |
 
-Flat layout (four files, no modules). One root `aws_ecs_task_definition` so
-Fray can resolve `task_role_arn`. FR-007 secret-delivery needs `module.*`
-callRefs and is not asserted here.
+Flat layout (four files, no modules). Two root ECS task definitions (`app`,
+`worker`) each with their own task role and bucket. App task def references a
+root secret via `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan
+create → `container_definitions` unknown; see B-49).
+
+Pinned Fray Action: **v0.25.0**.
 
 ### Known gaps
 
 | ID | Gap |
 |----|-----|
-| B-43 | Root-module `aws_ecs_task_definition.app` `container_definitions` not parsed (only module-built JSON) |
-| B-44 | S3 flows need one task definition per plan — fixture keeps a single `aws_ecs_task_definition.app` |
+| B-49 | Root-module ECS task definition created in the same plan as its secret: `container_definitions` is unknown at plan and there is no configuration fallback (module-built task definitions have one) — FR-007 unverified |
 | B-48 | Mitigated results are keyed by DFD target id, not Terraform address — assert checks mitigated counts, not addresses |
 
 ### Known incidental opens
@@ -65,6 +68,8 @@ Listed under `known_incidental` in `expected/findings.json` (exact-set assert).
 | Rule | Address | Why |
 |------|---------|-----|
 | FR-005 | `aws_ecs_service.app` | Mutable `nginx:1.27` tag |
+| FR-005 | `aws_ecs_service.worker` | Mutable `nginx:1.27` tag |
+| FR-009 | `aws_secretsmanager_secret.app` | No rotation on the coverage secret |
 
 ## How the assert works
 
