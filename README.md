@@ -51,7 +51,7 @@ Flat layout (four files, no modules). Two root ECS task definitions (`app`,
 root secret via `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan
 create → `container_definitions` unknown; Fray reads it from the configuration).
 
-Pinned Fray Action: **v0.25.1**.
+Pinned Fray Action: **v0.26.0**.
 
 ### Known gaps
 
