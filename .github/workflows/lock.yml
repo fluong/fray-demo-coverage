@@ -38,3 +38,4 @@ jobs:
           path: infra/.terraform.lock.hcl
           if-no-files-found: error
           retention-days: 3
+          include-hidden-files: true
