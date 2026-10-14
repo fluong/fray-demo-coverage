@@ -334,7 +334,7 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_exec.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
-  # secret created in the same plan → container_definitions unknown at plan; root-module fallback is B-49.
+  # secret created in the same plan → container_definitions unknown at plan; Fray reads it from the configuration (B-49, v0.25.1).
   container_definitions = jsonencode([{
     name      = "app"
     image     = "public.ecr.aws/docker/library/nginx:1.27"

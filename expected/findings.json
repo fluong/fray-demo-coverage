@@ -51,6 +51,12 @@
       "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket → authz_scope=resource (B-44)"
     },
     {
+      "rule": "FR-007",
+      "address": "aws_iam_role_policy.ecs_exec_secrets",
+      "verdict": "mitigated",
+      "why": "execution role GetSecretValue scoped to app secret name-* (B-43 root secret delivery)"
+    },
+    {
       "rule": "FR-001",
       "address": "aws_apigatewayv2_route.public",
       "verdict": "open",
@@ -83,10 +89,16 @@
       "why": "Mutable nginx:1.27 tag on worker service; fixture noise (B-44)"
     },
     {
+      "rule": "FR-003",
+      "address": "aws_ecs_service.app",
+      "verdict": "open",
+      "why": "ECS secrets[].valueFrom is always env injection (B-43); accepted fixture noise"
+    },
+    {
       "rule": "FR-009",
       "address": "aws_secretsmanager_secret.app",
       "verdict": "open",
-      "why": "No rotation on coverage secret; accepted fixture noise (secret element only; no CD parse)"
+      "why": "No rotation on coverage secret; accepted fixture noise (B-43)"
     }
   ],
   "dfd_evidence": [
@@ -181,6 +193,20 @@
           "to_kind": "object_storage",
           "from_address": "aws_ecs_service.app",
           "to_address": "aws_s3_bucket.worker"
+        }
+      }
+    },
+    {
+      "id": "root-secret-delivery",
+      "for": "B-43: root task def secrets valueFrom → root secret",
+      "require": {
+        "flow": {
+          "secret_delivery": "env",
+          "data_class": "credentials",
+          "from_kind": "secret_store",
+          "to_kind": "container_service",
+          "from_address": "aws_secretsmanager_secret.app",
+          "to_address": "aws_ecs_service.app"
         }
       }
     }
