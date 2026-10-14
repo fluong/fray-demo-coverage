@@ -9,11 +9,6 @@
 # Local .terraform directories
 .terraform/
 
-# Provider lock — ignore until a multi-platform .terraform.lock.hcl is
-# generated deliberately for CI (terraform providers lock -platform=…).
-# A single-platform lock from a local init must not be committed.
-.terraform.lock.hcl
-
 # .tfstate files
 *.tfstate
 *.tfstate.*

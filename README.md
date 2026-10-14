@@ -149,3 +149,4 @@ Never apply.
 ## Contributing
 
 The provider lock file is generated in CI (Actions → lock → Run workflow), never locally.
+To update providers: bump terraform.tf, run the lock workflow, commit its artifact.
