@@ -49,15 +49,14 @@ context.
 Flat layout (four files, no modules). Two root ECS task definitions (`app`,
 `worker`) each with their own task role and bucket. App task def references a
 root secret via `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan
-create → `container_definitions` unknown; see B-49).
+create → `container_definitions` unknown; Fray reads it from the configuration).
 
-Pinned Fray Action: **v0.25.0**.
+Pinned Fray Action: **v0.25.1**.
 
 ### Known gaps
 
 | ID | Gap |
 |----|-----|
-| B-49 | Root-module ECS task definition created in the same plan as its secret: `container_definitions` is unknown at plan and there is no configuration fallback (module-built task definitions have one) — FR-007 unverified |
 | B-48 | Mitigated results are keyed by DFD target id, not Terraform address — assert checks mitigated counts, not addresses |
 
 ### Known incidental opens
@@ -69,6 +68,7 @@ Listed under `known_incidental` in `expected/findings.json` (exact-set assert).
 |------|---------|-----|
 | FR-005 | `aws_ecs_service.app` | Mutable `nginx:1.27` tag |
 | FR-005 | `aws_ecs_service.worker` | Mutable `nginx:1.27` tag |
+| FR-003 | `aws_ecs_service.app` | ECS `secrets[].valueFrom` is always env injection |
 | FR-009 | `aws_secretsmanager_secret.app` | No rotation on the coverage secret |
 
 ## How the assert works
