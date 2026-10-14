@@ -52,7 +52,7 @@ Flat layout (four files, no modules). Two root ECS task definitions (`app`,
 root secret via `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan
 create → `container_definitions` unknown; Fray reads it from the configuration).
 
-Pinned Fray Action: **v0.26.0**.
+Pinned Fray Action: **v0.26.1**.
 
 ### Known gaps
 
@@ -82,7 +82,7 @@ Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
 
 | File | Contents |
 |------|----------|
-| `findings.json` | All findings: `rule_id`, `target` (DFD id), `status`, `severity`, optional local `addresses` (fray v0.26.0+) |
+| `findings.json` | All findings: `rule_id`, `target` (DFD id), `status`, `severity`, optional local `addresses` (fray v0.26.1+) |
 | `findings.sarif` | **Open** findings only; `partialFingerprints["fray/v1"]` = `sha256(rule\|cause)` |
 | `threat-model.md` | Human report |
 | `pr-comment.md` | PR comment body |
@@ -97,7 +97,7 @@ Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
 3. **Mitigated / unverified / waived:** status counts in `findings.json`, and each expected address must appear in a matching finding’s `addresses` list.
 4. **DFD evidence:** `payload.json` flows/elements carry the attributes that drive mitigated/open drivers (`authz_scope`, `region`, kinds).
 
-Mitigated, unverified and waived results are checked by Terraform address (`findings.json` `addresses`, fray v0.26.0+).
+Mitigated, unverified and waived results are checked by Terraform address (`findings.json` `addresses`, fray v0.26.1+).
 
 Assert runs on `push` to `main` and `workflow_dispatch` only.
 
