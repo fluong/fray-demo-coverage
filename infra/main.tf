@@ -285,26 +285,24 @@ resource "aws_lambda_function" "bedrock_global" {
 }
 
 # ---------------------------------------------------------------------------
-# (e) FR-032 IAM shapes (B-35) — flat layout, exactly one task definition.
+# (e) FR-032 — two root task definitions (B-44).
 #
-# Fray resolves the task via taskAddress: len(aws_ecs_task_definition)==1.
-# bucketFlows reads task_role_arn (not execution_role_arn).
-#
+# bucketFlows reads each service's task_role_arn (not execution_role_arn).
 # FR-032 when: to.kind=object_storage AND authz_scope exists; pass: scope=resource.
-# It does not require authz_actions / write verbs (GetObject alone can mitigate),
-# but we grant PutObject+DeleteObject so authz_actions is also populated.
 #
-# data.aws_iam_policy_document resources are literal-only on purpose: checks
-# B-45 (plan-time data sources). Literals resolve at plan time and live in
-# prior_state (not resource_changes); v0.24.1+ loadDataResources reads them.
-#
-# FR-007 unverified (unknown identity-policy + secret delivery) needs module.*
-# secret refs (elementsFromRefs / readRootContainers) — not assertable flat.
+# Policy style: same as before — literal jsonencode ARNs plus a literal-only
+# data.aws_iam_policy_document (B-45 plan-time data sources in prior_state).
+# Worker uses the same pair so both workloads exercise the same IAM shapes.
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "uploads" {
   bucket = "${local.name}-uploads-fake"
 }
+
+resource "aws_s3_bucket" "worker" {
+  bucket = "${local.name}-worker-fake"
+}
+
 
 resource "aws_iam_role" "ecs_exec" {
   name               = "${local.name}-ecs-exec"
@@ -313,6 +311,11 @@ resource "aws_iam_role" "ecs_exec" {
 
 resource "aws_iam_role" "ecs_task" {
   name               = "${local.name}-ecs-task"
+  assume_role_policy = local.assume_ecs
+}
+
+resource "aws_iam_role" "ecs_task_worker" {
+  name               = "${local.name}-ecs-task-worker"
   assume_role_policy = local.assume_ecs
 }
 
@@ -330,6 +333,21 @@ resource "aws_ecs_task_definition" "app" {
   task_role_arn            = aws_iam_role.ecs_task.arn
   container_definitions = jsonencode([{
     name      = "app"
+    image     = "public.ecr.aws/docker/library/nginx:1.27"
+    essential = true
+  }])
+}
+
+resource "aws_ecs_task_definition" "worker" {
+  family                   = "${local.name}-worker"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_exec.arn
+  task_role_arn            = aws_iam_role.ecs_task_worker.arn
+  container_definitions = jsonencode([{
+    name      = "worker"
     image     = "public.ecr.aws/docker/library/nginx:1.27"
     essential = true
   }])
@@ -359,7 +377,20 @@ resource "aws_ecs_service" "app" {
   }
 }
 
-# (a) Literal ARN — known JSON on task role; bucket name matches uploads.
+resource "aws_ecs_service" "worker" {
+  name            = "${local.name}-worker"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.worker.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = [aws_subnet.public.id]
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
+  }
+}
+
+# App task role: literal + data-doc → uploads bucket only.
 resource "aws_iam_role_policy" "known" {
   name = "known-literal-arns"
   role = aws_iam_role.ecs_task.id
@@ -373,12 +404,10 @@ resource "aws_iam_role_policy" "known" {
   })
 }
 
-# (b) data.aws_iam_policy_document on the task role — literal-only on purpose:
-# checks B-45 (plan-time data sources).
 data "aws_iam_policy_document" "datadoc" {
   statement {
-    sid     = "S3Write"
-    actions = ["s3:PutObject", "s3:DeleteObject"]
+    sid       = "S3Write"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
     resources = ["arn:aws:s3:::${local.name}-uploads-fake/*"]
   }
 }
@@ -388,6 +417,35 @@ resource "aws_iam_role_policy" "datadoc" {
   role   = aws_iam_role.ecs_task.id
   policy = data.aws_iam_policy_document.datadoc.json
 }
+
+# Worker task role: same IAM shapes, different bucket (B-44, no cross-grant).
+resource "aws_iam_role_policy" "worker_known" {
+  name = "worker-known-literal-arns"
+  role = aws_iam_role.ecs_task_worker.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:PutObject", "s3:DeleteObject"]
+      Resource = ["arn:aws:s3:::${local.name}-worker-fake/*"]
+    }]
+  })
+}
+
+data "aws_iam_policy_document" "worker_datadoc" {
+  statement {
+    sid       = "S3WriteWorker"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
+    resources = ["arn:aws:s3:::${local.name}-worker-fake/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "worker_datadoc" {
+  name   = "worker-datadoc-from-data"
+  role   = aws_iam_role.ecs_task_worker.id
+  policy = data.aws_iam_policy_document.worker_datadoc.json
+}
+
 
 # ---------------------------------------------------------------------------
 # (f) API Gateway HTTP API + Lambda URL — FR-001 open

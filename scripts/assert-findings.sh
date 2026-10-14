@@ -43,7 +43,7 @@ FINDINGS_JSON="${FINDINGS_JSON:-${FRAY_OUT}/findings.json}"
 PAYLOAD_JSON="${PAYLOAD_JSON:-${FRAY_OUT}/payload.json}"
 
 python3 - "${EXPECTED}" "${SARIF_FILE}" "${FINDINGS_JSON}" "${PAYLOAD_JSON}" <<'PY'
-import hashlib, json, sys
+import hashlib, hmac, json, os, sys
 from pathlib import Path
 
 expected_path, sarif_path, findings_path, payload_path = sys.argv[1:5]
@@ -52,6 +52,33 @@ sarif = json.load(open(sarif_path))
 
 def fingerprint(rule: str, address: str) -> str:
     return hashlib.sha256(f"{rule}|{address}".encode()).hexdigest()
+
+def _redaction_key():
+    raw = (os.environ.get("FRAY_REDACTION_KEY") or "").strip()
+    if not raw:
+        return None
+    try:
+        return bytes.fromhex(raw)
+    except ValueError:
+        return None
+
+def hash_address(plaintext):
+    key = _redaction_key()
+    if key is None:
+        return None
+    # client.HashField: HMAC-SHA256(key, "address" || 0x00 || value)
+    mac = hmac.new(key, b"address\x00" + plaintext.encode(), hashlib.sha256)
+    return mac.hexdigest()
+
+def el_addresses(el: dict) -> list[str]:
+    return list((el.get("evidence") or {}).get("addresses") or [])
+
+def address_matches(el: dict, want: str) -> bool:
+    addrs = el_addresses(el)
+    if want in addrs:
+        return True
+    hashed = hash_address(want)
+    return bool(hashed and hashed in addrs)
 
 results = []
 for run in sarif.get("runs") or []:
@@ -180,28 +207,61 @@ if dfd_checks:
                 el = elements.get(eid) or {}
                 return el.get("kind") or ""
 
+            def el_by_id(eid: str) -> dict:
+                return elements.get(eid) or {}
+
+            def flow_matches(fl: dict, want: dict) -> bool:
+                if want.get("authz_scope_absent"):
+                    if fl.get("authz_scope") is not None:
+                        return False
+                elif want.get("authz_scope") and fl.get("authz_scope") != want["authz_scope"]:
+                    return False
+                if want.get("secret_delivery") and fl.get("secret_delivery") != want["secret_delivery"]:
+                    return False
+                if want.get("data_class") and fl.get("data_class") != want["data_class"]:
+                    return False
+                if want.get("to_kind") and el_kind(fl.get("to") or "") != want["to_kind"]:
+                    return False
+                if want.get("from_kind") and el_kind(fl.get("from") or "") != want["from_kind"]:
+                    return False
+                if want.get("from_address"):
+                    if not address_matches(el_by_id(fl.get("from") or ""), want["from_address"]):
+                        return False
+                if want.get("to_address"):
+                    if not address_matches(el_by_id(fl.get("to") or ""), want["to_address"]):
+                        return False
+                return True
+
             for check in dfd_checks:
                 cid = check.get("id") or check.get("for") or "check"
                 req = check.get("require") or {}
                 ok = False
                 if "flow" in req:
                     want = req["flow"]
-                    for fl in flows:
-                        if want.get("authz_scope_absent"):
-                            if fl.get("authz_scope") is not None:
-                                continue
-                        elif want.get("authz_scope") and fl.get("authz_scope") != want["authz_scope"]:
-                            continue
-                        if want.get("to_kind") and el_kind(fl.get("to") or "") != want["to_kind"]:
-                            continue
-                        if want.get("from_kind") and el_kind(fl.get("from") or "") != want["from_kind"]:
-                            continue
-                        ok = True
-                        break
+                    hits = [fl for fl in flows if flow_matches(fl, want)]
+                    if want.get("absent"):
+                        ok = len(hits) == 0
+                    else:
+                        min_count = want.get("min_count")
+                        exact_count = want.get("exact_count")
+                        if exact_count is not None:
+                            ok = len(hits) == exact_count
+                        elif min_count is not None:
+                            ok = len(hits) >= min_count
+                        else:
+                            ok = len(hits) >= 1
+                        if ok and want.get("unique_from"):
+                            froms = [fl.get("from") for fl in hits]
+                            ok = len(froms) == len(set(froms))
+                        if ok and want.get("unique_to"):
+                            tos = [fl.get("to") for fl in hits]
+                            ok = len(tos) == len(set(tos))
                 elif "element" in req:
                     want = req["element"]
                     for el in elements.values():
                         if want.get("kind") and el.get("kind") != want["kind"]:
+                            continue
+                        if want.get("address") and not address_matches(el, want["address"]):
                             continue
                         attrs = el.get("attributes") or {}
                         attr_ok = True
@@ -212,7 +272,7 @@ if dfd_checks:
                         if attr_ok and want.get("attributes"):
                             ok = True
                             break
-                        if not want.get("attributes") and want.get("kind"):
+                        if not want.get("attributes") and (want.get("kind") or want.get("address")):
                             ok = True
                             break
                 else:

@@ -42,7 +42,13 @@
       "rule": "FR-032",
       "address": "aws_iam_role_policy.known",
       "verdict": "mitigated",
-      "why": "task_role: literal + data-doc PutObject/DeleteObject → authz_scope=resource (FR-032 pass)"
+      "why": "app task_role: literal + data-doc PutObject/DeleteObject on uploads \u2192 authz_scope=resource"
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_iam_role_policy.worker_known",
+      "verdict": "mitigated",
+      "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket \u2192 authz_scope=resource (B-44)"
     },
     {
       "rule": "FR-001",
@@ -69,6 +75,12 @@
       "address": "aws_ecs_service.app",
       "verdict": "open",
       "why": "Mutable nginx:1.27 tag; fixture noise"
+    },
+    {
+      "rule": "FR-005",
+      "address": "aws_ecs_service.worker",
+      "verdict": "open",
+      "why": "Mutable nginx:1.27 tag on worker service; fixture noise (B-44)"
     }
   ],
   "dfd_evidence": [
@@ -111,6 +123,58 @@
         "flow": {
           "authz_scope": "resource",
           "to_kind": "object_storage"
+        }
+      }
+    },
+    {
+      "id": "app-to-uploads-bucket",
+      "for": "B-44: app workload \u2192 uploads bucket only",
+      "require": {
+        "flow": {
+          "authz_scope": "resource",
+          "from_kind": "container_service",
+          "to_kind": "object_storage",
+          "from_address": "aws_ecs_service.app",
+          "to_address": "aws_s3_bucket.uploads"
+        }
+      }
+    },
+    {
+      "id": "worker-to-worker-bucket",
+      "for": "B-44: worker workload \u2192 worker bucket only",
+      "require": {
+        "flow": {
+          "authz_scope": "resource",
+          "from_kind": "container_service",
+          "to_kind": "object_storage",
+          "from_address": "aws_ecs_service.worker",
+          "to_address": "aws_s3_bucket.worker"
+        }
+      }
+    },
+    {
+      "id": "no-worker-to-uploads",
+      "for": "B-44: no cross-flow worker \u2192 uploads",
+      "require": {
+        "flow": {
+          "absent": true,
+          "from_kind": "container_service",
+          "to_kind": "object_storage",
+          "from_address": "aws_ecs_service.worker",
+          "to_address": "aws_s3_bucket.uploads"
+        }
+      }
+    },
+    {
+      "id": "no-app-to-worker-bucket",
+      "for": "B-44: no cross-flow app \u2192 worker bucket",
+      "require": {
+        "flow": {
+          "absent": true,
+          "from_kind": "container_service",
+          "to_kind": "object_storage",
+          "from_address": "aws_ecs_service.app",
+          "to_address": "aws_s3_bucket.worker"
         }
       }
     }

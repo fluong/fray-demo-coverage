@@ -118,4 +118,6 @@ jobs:
         env:
           HAS_SARIF: ${{ steps.fray.outputs.has-sarif }}
           SARIF_FILE: ${{ steps.fray.outputs.sarif-file }}
+          # Same key Fray used so DFD evidence can match HMAC'd addresses.
+          FRAY_REDACTION_KEY: ${{ secrets.FRAY_REDACTION_KEY }}
         run: bash scripts/assert-findings.sh
