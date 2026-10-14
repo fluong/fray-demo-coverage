@@ -38,10 +38,11 @@ context.
 | FR-034 | `aws_autoscaling_group.rdp` | open | LT `$Latest` public NI + RDP from `0.0.0.0/0` |
 | FR-034 | `aws_eks_node_group.workers` | open | `remote_access` key, no `source_security_group_ids`, public subnet |
 | FR-017 | `signal:iam_service:bedrock` | open | `global.` inference profile → combined Bedrock region `global` |
-| FR-004 | `aws_iam_role_policy.bedrock_pinned` | mitigated | InvokeModel on one eu-west-1 foundation-model ARN |
-| FR-004 | `aws_iam_role_policy.bedrock_global` | mitigated | InvokeModel on one `global.` inference-profile ARN |
-| FR-032 | `aws_iam_role_policy.known` (+ `datadoc`) | mitigated | Literal + plan-time data-doc ARNs on app task role → uploads |
-| FR-032 | `aws_iam_role_policy.worker_known` (+ `worker_datadoc`) | mitigated | Same IAM shapes on worker task role → worker bucket (B-44) |
+| FR-004 | `aws_lambda_function.bedrock_pinned` | mitigated | InvokeModel on one eu-west-1 foundation-model ARN |
+| FR-004 | `aws_lambda_function.bedrock_global` | mitigated | InvokeModel on one `global.` inference-profile ARN |
+| FR-032 | `aws_s3_bucket.uploads` | mitigated | Literal + plan-time data-doc ARNs on app task role → uploads |
+| FR-032 | `aws_s3_bucket.worker` | mitigated | Same IAM shapes on worker task role → worker bucket (B-44) |
+| FR-007 | `aws_ecs_service.app` | mitigated | Execution role GetSecretValue scoped to app secret (B-43) |
 | FR-001 | `aws_apigatewayv2_route.public` | open | HTTP API route `authorization_type = NONE` |
 | FR-001 | `aws_lambda_function_url.open` | open | Function URL `authorization_type = NONE` |
 | FR-001 | `aws_lb.cognito` | mitigated | Cognito-authenticated HTTPS listener on an internet ALB |
@@ -55,9 +56,7 @@ Pinned Fray Action: **v0.26.0**.
 
 ### Known gaps
 
-| ID | Gap |
-|----|-----|
-| B-48 | Mitigated results are keyed by DFD target id, not Terraform address — assert checks mitigated counts, not addresses |
+None currently.
 
 ### Known incidental opens
 
@@ -83,7 +82,7 @@ Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
 
 | File | Contents |
 |------|----------|
-| `findings.json` | All findings: `rule_id`, `target` (DFD id), `status`, `severity` — **no Terraform addresses** |
+| `findings.json` | All findings: `rule_id`, `target` (DFD id), `status`, `severity`, optional local `addresses` (fray v0.26.0+) |
 | `findings.sarif` | **Open** findings only; `partialFingerprints["fray/v1"]` = `sha256(rule\|cause)` |
 | `threat-model.md` | Human report |
 | `pr-comment.md` | PR comment body |
@@ -95,20 +94,12 @@ Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
 
 1. **Open (coverage):** SARIF fingerprint (or `match: rule`) present.
 2. **Exact open set:** every SARIF open is an expected open or `known_incidental`.
-3. **Mitigated:** `findings.json` has `status=mitigated` for that rule (count ≥ expected rows). Address cannot be checked — wire format has DFD target ids only.
+3. **Mitigated / unverified / waived:** status counts in `findings.json`, and each expected address must appear in a matching finding’s `addresses` list.
 4. **DFD evidence:** `payload.json` flows/elements carry the attributes that drive mitigated/open drivers (`authz_scope`, `region`, kinds).
 
+Mitigated, unverified and waived results are checked by Terraform address (`findings.json` `addresses`, fray v0.26.0+).
+
 Assert runs on `push` to `main` and `workflow_dispatch` only.
-
-### B-48 — address-keyed mitigated results
-
-Rule-level mitigated checks that need `(rule, terraform address) → verdict`
-require a client change: write `findings.json` (or a sibling) with every
-evaluated rule’s verdict and cause address, not only DFD target ids. Smallest
-change: extend `apiv1.Finding` / `MarshalFindings` with an optional
-`cause_address` (local-only, never POSTed) populated from `render.CauseAddress`
-when writing `-out`. Track as a Fray client backlog item — **not implemented
-here**.
 
 ### Gate vs planted highs
 
