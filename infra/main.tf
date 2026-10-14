@@ -285,7 +285,7 @@ resource "aws_lambda_function" "bedrock_global" {
 }
 
 # ---------------------------------------------------------------------------
-# (e) FR-032 — two root task definitions (B-44).
+# (e) FR-032 — two root task definitions (B-44) + root secret on app (B-43/B-49).
 #
 # bucketFlows reads each service's task_role_arn (not execution_role_arn).
 # FR-032 when: to.kind=object_storage AND authz_scope exists; pass: scope=resource.
@@ -303,6 +303,9 @@ resource "aws_s3_bucket" "worker" {
   bucket = "${local.name}-worker-fake"
 }
 
+resource "aws_secretsmanager_secret" "app" {
+  name = "${local.name}-app-fake"
+}
 
 resource "aws_iam_role" "ecs_exec" {
   name               = "${local.name}-ecs-exec"
@@ -331,10 +334,15 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_exec.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
+  # secret created in the same plan → container_definitions unknown at plan; root-module fallback is B-49.
   container_definitions = jsonencode([{
     name      = "app"
     image     = "public.ecr.aws/docker/library/nginx:1.27"
     essential = true
+    secrets = [{
+      name      = "APP_SECRET"
+      valueFrom = aws_secretsmanager_secret.app.arn
+    }]
   }])
 }
 
@@ -446,6 +454,20 @@ resource "aws_iam_role_policy" "worker_datadoc" {
   policy = data.aws_iam_policy_document.worker_datadoc.json
 }
 
+# Execution role: resource-scoped GetSecretValue (ready when B-49 reads secrets).
+resource "aws_iam_role_policy" "ecs_exec_secrets" {
+  name = "ecs-exec-secrets"
+  role = aws_iam_role.ecs_exec.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      # name-* is plan-known; the random ARN suffix is not (never applied).
+      Resource = ["arn:aws:secretsmanager:us-east-1:123456789012:secret:${aws_secretsmanager_secret.app.name}-*"]
+    }]
+  })
+}
 
 # ---------------------------------------------------------------------------
 # (f) API Gateway HTTP API + Lambda URL — FR-001 open
