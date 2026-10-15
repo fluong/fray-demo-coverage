@@ -113,8 +113,8 @@
     {
       "rule": "FR-031",
       "address": "aws_db_instance.main",
-      "verdict": "mitigated",
-      "why": "engine=postgres engine_version=16 → documented rds.force_ssl default ON (no custom parameter group)"
+      "verdict": "unverified",
+      "why": "client v0.30.0 sets no tls_enforced for RDS PostgreSQL 16 without a parameter group; becomes mitigated with the engine-default fix"
     },
     {
       "rule": "FR-033",
