@@ -51,6 +51,18 @@
       "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket → authz_scope=resource (finding addresses the bucket To-element; B-44)"
     },
     {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.uploads",
+      "verdict": "open",
+      "why": "No SSE configuration → SSE-S3 default → customer_managed_key=false"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.worker",
+      "verdict": "open",
+      "why": "No SSE configuration → SSE-S3 default → customer_managed_key=false"
+    },
+    {
       "rule": "FR-007",
       "address": "aws_ecs_service.app",
       "verdict": "mitigated",
