@@ -339,6 +339,10 @@ resource "aws_ecs_task_definition" "app" {
     name      = "app"
     image     = "public.ecr.aws/docker/library/nginx:1.27"
     essential = true
+    portMappings = [{
+      containerPort = 8080
+      protocol      = "tcp"
+    }]
     secrets = [{
       name      = "APP_SECRET"
       valueFrom = aws_secretsmanager_secret.app.arn
@@ -382,6 +386,12 @@ resource "aws_ecs_service" "app" {
     subnets          = [aws_subnet.public.id]
     security_groups  = [aws_security_group.ecs.id]
     assign_public_ip = true
+  }
+  # Fronted by the public ALB so FR-035 has end-to-end coverage
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app.arn
+    container_name   = "app"
+    container_port   = 8080
   }
 }
 
