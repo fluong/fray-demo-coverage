@@ -68,6 +68,22 @@ resource "aws_subnet" "public_b" {
   tags                    = { Name = "${local.name}-public-b" }
 }
 
+resource "aws_subnet" "private" {
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = "10.42.11.0/24"
+  availability_zone       = local.az
+  map_public_ip_on_launch = false
+  tags                    = { Name = "${local.name}-private" }
+}
+
+resource "aws_subnet" "private_b" {
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = "10.42.12.0/24"
+  availability_zone       = "us-east-1b"
+  map_public_ip_on_launch = false
+  tags                    = { Name = "${local.name}-private-b" }
+}
+
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 }
@@ -365,8 +381,19 @@ resource "aws_ecs_task_definition" "worker" {
   }])
 }
 
-resource "aws_security_group" "ecs" {
-  name   = "${local.name}-ecs"
+resource "aws_security_group" "app" {
+  name   = "${local.name}-app"
+  vpc_id = aws_vpc.this.id
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "worker" {
+  name   = "${local.name}-worker"
   vpc_id = aws_vpc.this.id
   egress {
     from_port   = 0
@@ -384,7 +411,7 @@ resource "aws_ecs_service" "app" {
   launch_type     = "FARGATE"
   network_configuration {
     subnets          = [aws_subnet.public.id]
-    security_groups  = [aws_security_group.ecs.id]
+    security_groups  = [aws_security_group.app.id]
     assign_public_ip = true
   }
   # Fronted by the public ALB so FR-035 has end-to-end coverage
@@ -403,7 +430,7 @@ resource "aws_ecs_service" "worker" {
   launch_type     = "FARGATE"
   network_configuration {
     subnets          = [aws_subnet.public.id]
-    security_groups  = [aws_security_group.ecs.id]
+    security_groups  = [aws_security_group.worker.id]
     assign_public_ip = true
   }
 }
@@ -477,6 +504,86 @@ resource "aws_iam_role_policy" "ecs_exec_secrets" {
       Resource = ["arn:aws:secretsmanager:us-east-1:123456789012:secret:${aws_secretsmanager_secret.app.name}-*"]
     }]
   })
+}
+
+# ---------------------------------------------------------------------------
+# (e2) RDS — future FR-028 coverage (Action still v0.30.0: FR-028 not evaluated).
+# App task role: rds-db:connect scoped to this instance's dbuser ARN.
+# Worker task role: rds-db:connect on "*" (account-wide).
+# Data docs (B-44): do not jsonencode interpolated resource_id into role policy.
+# ---------------------------------------------------------------------------
+
+resource "aws_db_subnet_group" "main" {
+  name       = "${local.name}-db"
+  subnet_ids = [aws_subnet.private.id, aws_subnet.private_b.id]
+}
+
+resource "aws_security_group" "db" {
+  name   = "${local.name}-db"
+  vpc_id = aws_vpc.this.id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id, aws_security_group.worker.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# FR-028 coverage: app scoped (mitigated), worker account-wide (open)
+resource "aws_db_instance" "main" {
+  identifier                          = "${local.name}-db"
+  engine                              = "postgres"
+  engine_version                      = "16"
+  instance_class                      = "db.t3.micro"
+  allocated_storage                   = 20
+  username                            = "app"
+  manage_master_user_password         = true
+  iam_database_authentication_enabled = true
+  storage_encrypted                   = true
+  publicly_accessible                 = false
+  deletion_protection                 = false
+  skip_final_snapshot                 = true
+  db_subnet_group_name                = aws_db_subnet_group.main.name
+  vpc_security_group_ids              = [aws_security_group.db.id]
+}
+
+data "aws_iam_policy_document" "app_rds" {
+  statement {
+    sid     = "RDSIAMAuthApp"
+    actions = ["rds-db:connect"]
+    resources = [
+      "arn:aws:rds-db:us-east-1:123456789012:dbuser:${aws_db_instance.main.resource_id}/app",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "app_rds" {
+  name   = "app-rds-connect"
+  role   = aws_iam_role.ecs_task.id
+  policy = data.aws_iam_policy_document.app_rds.json
+}
+
+data "aws_iam_policy_document" "worker_rds" {
+  statement {
+    sid     = "RDSIAMAuthWorker"
+    actions = ["rds-db:connect"]
+    # deliberately account-wide: FR-028 open in coverage
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "worker_rds" {
+  name   = "worker-rds-connect"
+  role   = aws_iam_role.ecs_task_worker.id
+  policy = data.aws_iam_policy_document.worker_rds.json
 }
 
 # ---------------------------------------------------------------------------

@@ -97,6 +97,36 @@
       "address": "aws_lb.cognito",
       "verdict": "mitigated",
       "why": "Internet ALB HTTPS listener authenticate-cognito before forward"
+    },
+    {
+      "rule": "FR-029",
+      "address": "aws_db_instance.main",
+      "verdict": "mitigated",
+      "why": "publicly_accessible=false (private subnets + peer-SG ingress only)"
+    },
+    {
+      "rule": "FR-030",
+      "address": "aws_db_instance.main",
+      "verdict": "mitigated",
+      "why": "storage_encrypted=true"
+    },
+    {
+      "rule": "FR-031",
+      "address": "aws_db_instance.main",
+      "verdict": "mitigated",
+      "why": "engine=postgres engine_version=16 → documented rds.force_ssl default ON (no custom parameter group)"
+    },
+    {
+      "rule": "FR-033",
+      "address": "aws_db_instance.main",
+      "verdict": "open",
+      "why": "deletion_protection=false and no lifecycle.prevent_destroy"
+    },
+    {
+      "rule": "FR-038",
+      "address": "aws_db_instance.main",
+      "verdict": "open",
+      "why": "provider deletion_protection=false (console/API delete allowed)"
     }
   ],
   "known_incidental": [
