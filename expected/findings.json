@@ -51,6 +51,12 @@
       "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket → authz_scope=resource (finding addresses the bucket To-element; B-44)"
     },
     {
+      "rule": "FR-035",
+      "address": "aws_s3_bucket.uploads",
+      "verdict": "mitigated",
+      "why": "app internet-reachable via public ALB; app→uploads transport=tls (finding addresses the bucket To-element)"
+    },
+    {
       "rule": "FR-036",
       "address": "aws_s3_bucket.uploads",
       "verdict": "open",
@@ -67,6 +73,12 @@
       "address": "aws_ecs_service.app",
       "verdict": "mitigated",
       "why": "execution role GetSecretValue scoped to app secret name-* (finding addresses the service To-element; B-43 root secret delivery)"
+    },
+    {
+      "rule": "FR-002",
+      "address": "aws_ecs_service.app",
+      "verdict": "unverified",
+      "why": "app becomes internet_reachable via ALB fronting; no aws_appautoscaling_target → max_instances absent"
     },
     {
       "rule": "FR-001",
