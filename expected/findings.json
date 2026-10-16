@@ -180,19 +180,13 @@
       "rule": "FR-028",
       "address": "aws_db_instance.main",
       "verdict": "open",
-      "why": "asg_db instance profile: inline rds-db:connect on \"*\" → authz_scope=account on db_worker→db (Action v0.33.0+)",
+      "why": "asg_db instance profile: inline rds-db:connect on \"*\" → authz_scope=account on db_worker→db (Action v0.33.0+). FR-035 not selected: source not internet-reachable",
       "flow": {
         "from": "aws_autoscaling_group.db_worker",
         "to": "aws_db_instance.main",
         "data_class": "unknown",
         "cause": "aws_iam_role_policy.asg_db_rds"
       }
-    },
-    {
-      "rule": "FR-035",
-      "address": "aws_db_instance.main",
-      "verdict": "mitigated",
-      "why": "db_worker ASG in private subnets; db_worker→db path not internet-reachable (Action v0.33.0+)"
     }
   ],
   "known_incidental": [
