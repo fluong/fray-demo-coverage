@@ -143,6 +143,18 @@
     {
       "rule": "FR-028",
       "address": "aws_db_instance.main",
+      "verdict": "open",
+      "why": "declared task role attaches rds-db:connect only by managed-policy ARN, so the parser omits authz_scope; fray.yaml fills account. Cause is the repo-relative config path",
+      "flow": {
+        "from": "aws_ecs_service.declared",
+        "to": "aws_db_instance.main",
+        "data_class": "unknown",
+        "cause": "fray.yaml#aws_ecs_service.declared -> aws_db_instance.main unknown"
+      }
+    },
+    {
+      "rule": "FR-028",
+      "address": "aws_db_instance.main",
       "verdict": "mitigated",
       "why": "app task role data-doc rds-db:connect on dbuser:${aws_db_instance.main.resource_id}/app → authz_scope=resource"
     },
@@ -281,11 +293,11 @@
       }
     },
     {
-      "id": "declared-db-scope-omitted",
-      "for": "managed-policy ARN only: parser omits authz_scope",
+      "id": "declared-db-scope-account",
+      "for": "parser omits DB authz_scope when the only grant is a managed-policy ARN; fray.yaml fills account",
       "require": {
         "flow": {
-          "authz_scope_absent": true,
+          "authz_scope": "account",
           "data_class": "unknown",
           "from_kind": "container_service",
           "to_kind": "relational_db",

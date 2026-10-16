@@ -1,4 +1,12 @@
 schema_version: fray-config/v1
 # Coverage fixtures declare purposes only when a rule needs them.
+# aws_ecs_service.declared reaches aws_db_instance.main through its security
+# group, but the task role attaches the DB grant only as a managed-policy ARN
+# (no in-plan document), so the parser omits authz_scope. Fill account.
 annotations:
   elements: []
+  flows:
+    - from: aws_ecs_service.declared
+      to: aws_db_instance.main
+      authz_scope: account
+      reason: "managed policy grants rds-db:connect on * (reviewed)"
