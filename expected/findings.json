@@ -132,7 +132,8 @@
       "rule": "FR-028",
       "address": "aws_db_instance.main",
       "verdict": "open",
-      "why": "worker task role rds-db:connect on \"*\" → authz_scope=account (finding addresses the DB To-element)"
+      "why": "worker task role rds-db:connect on \"*\" → authz_scope=account; flow finding, so matched by rule (flow fingerprints are not rule|address)",
+      "match": "rule"
     },
     {
       "rule": "FR-028",
