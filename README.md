@@ -51,10 +51,17 @@ context.
 | FR-001 | `aws_lb.cognito` | mitigated | Cognito-authenticated HTTPS listener on an internet ALB |
 
 Flat layout (four files, no modules). Root ECS task definitions `app` and
-`worker` each have their own task role and bucket. `declared` reaches the same
-database through its security group. Its task role attaches the database grant
-only as a managed-policy ARN, so the parser omits `authz_scope` and FR-028 does
-not select that flow.
+`worker` each have their own task role and bucket. `aws_ecs_service.declared`
+reaches the same database through its security group. Its task role attaches the
+database grant only as a managed-policy ARN (no in-plan policy document):
+
+- `fray.yaml` `annotations.flows` fills `authz_scope: account` for
+  `aws_ecs_service.declared` → `aws_db_instance.main` (requires Action v0.32.0 or
+  later; older Actions reject the field).
+- That gives the open FR-028 row with cause
+  `fray.yaml#aws_ecs_service.declared -> aws_db_instance.main unknown`, plus the
+  `declared-db-scope-account` `dfd_evidence`.
+- The FR-005 row on the service stays `known_incidental`.
 The app task def references a root secret via
 `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan create →
 `container_definitions` unknown; Fray reads it from the configuration).
