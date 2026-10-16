@@ -113,8 +113,8 @@
     {
       "rule": "FR-031",
       "address": "aws_db_instance.main",
-      "verdict": "unverified",
-      "why": "client v0.30.0 sets no tls_enforced for RDS PostgreSQL 16 without a parameter group; becomes mitigated with the engine-default fix"
+      "verdict": "mitigated",
+      "why": "engine=postgres engine_version=16, default parameter group → rds.force_ssl default ON → tls_enforced=true (client v0.31.0)"
     },
     {
       "rule": "FR-033",
@@ -127,6 +127,24 @@
       "address": "aws_db_instance.main",
       "verdict": "open",
       "why": "provider deletion_protection=false (console/API delete allowed)"
+    },
+    {
+      "rule": "FR-028",
+      "address": "aws_db_instance.main",
+      "verdict": "open",
+      "why": "worker task role rds-db:connect on \"*\" → authz_scope=account (finding addresses the DB To-element)"
+    },
+    {
+      "rule": "FR-028",
+      "address": "aws_db_instance.main",
+      "verdict": "mitigated",
+      "why": "app task role data-doc rds-db:connect on dbuser:${aws_db_instance.main.resource_id}/app → authz_scope=resource"
+    },
+    {
+      "rule": "FR-035",
+      "address": "aws_db_instance.main",
+      "verdict": "mitigated",
+      "why": "app internet-reachable via public ALB (B-56); app→db tls_enforced=true"
     }
   ],
   "known_incidental": [
