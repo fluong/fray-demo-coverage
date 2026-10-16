@@ -96,6 +96,15 @@ jobs:
           redaction-key: ${{ secrets.FRAY_REDACTION_KEY }}
           show-payload: true
 
+      - name: Upload plan JSON
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plan-json
+          path: ${{ runner.temp }}/fray-out/plan.json
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Upload fray-out artifacts
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -168,6 +177,15 @@ jobs:
           stack: alt
           redaction-key: ${{ secrets.FRAY_REDACTION_KEY }}
           show-payload: true
+
+      - name: Upload plan JSON
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plan-json-alt
+          path: ${{ runner.temp }}/fray-out-alt/plan.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload fray-out artifacts
         if: always()
