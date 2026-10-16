@@ -51,6 +51,18 @@
       "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket → authz_scope=resource (finding addresses the bucket To-element; B-44)"
     },
     {
+      "rule": "FR-032",
+      "address": "aws_s3_bucket.uploads",
+      "verdict": "mitigated",
+      "why": "app_vm ec2_app instance profile: inline PutObject/GetObject on uploads only → authz_scope=resource on app_vm→uploads (Action v0.33.0+)",
+      "flow": {
+        "from": "aws_instance.app_vm",
+        "to": "aws_s3_bucket.uploads",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.ec2_app_s3"
+      }
+    },
+    {
       "rule": "FR-035",
       "address": "aws_s3_bucket.uploads",
       "verdict": "mitigated",
@@ -163,6 +175,24 @@
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
       "why": "app internet-reachable via public ALB (B-56); app→db tls_enforced=true"
+    },
+    {
+      "rule": "FR-028",
+      "address": "aws_db_instance.main",
+      "verdict": "open",
+      "why": "asg_db instance profile: inline rds-db:connect on \"*\" → authz_scope=account on db_worker→db (Action v0.33.0+)",
+      "flow": {
+        "from": "aws_autoscaling_group.db_worker",
+        "to": "aws_db_instance.main",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.asg_db_rds"
+      }
+    },
+    {
+      "rule": "FR-035",
+      "address": "aws_db_instance.main",
+      "verdict": "mitigated",
+      "why": "db_worker ASG in private subnets; db_worker→db path not internet-reachable (Action v0.33.0+)"
     }
   ],
   "known_incidental": [
@@ -317,6 +347,33 @@
           "to_kind": "container_service",
           "from_address": "aws_secretsmanager_secret.app",
           "to_address": "aws_ecs_service.app"
+        }
+      }
+    },
+    {
+      "id": "vm-s3-resource-scoped",
+      "for": "B-14: app_vm instance profile → uploads only (Action v0.33.0+)",
+      "require": {
+        "flow": {
+          "authz_scope": "resource",
+          "from_kind": "virtual_machine",
+          "to_kind": "object_storage",
+          "from_address": "aws_instance.app_vm",
+          "to_address": "aws_s3_bucket.uploads"
+        }
+      }
+    },
+    {
+      "id": "asg-db-scope-account",
+      "for": "B-14: db_worker ASG → RDS with account-wide rds-db:connect (Action v0.33.0+)",
+      "require": {
+        "flow": {
+          "authz_scope": "account",
+          "data_class": "unknown",
+          "from_kind": "virtual_machine",
+          "to_kind": "relational_db",
+          "from_address": "aws_autoscaling_group.db_worker",
+          "to_address": "aws_db_instance.main"
         }
       }
     }
