@@ -86,7 +86,7 @@ Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
 | File | Contents |
 |------|----------|
 | `findings.json` | All findings: `rule_id`, `target` (DFD id), `status`, `severity`, optional local `addresses` (fray v0.27.0+) |
-| `findings.sarif` | **Open** findings only; `partialFingerprints["fray/v1"]` = `sha256(rule\|cause)` |
+| `findings.sarif` | **Open** findings only; `partialFingerprints["fray/v1"]` = `sha256("<rule_id>\|<cause address>")` |
 | `threat-model.md` | Human report |
 | `pr-comment.md` | PR comment body |
 | `payload.json` | Exact POST body when `show-payload: true` (redacted DFD) |
@@ -95,10 +95,26 @@ Sibling files in the same `FRAY_OUT` directory (`cmd/fray/remote.go`,
 
 `scripts/assert-findings.sh`:
 
-1. **Open (coverage):** SARIF fingerprint (or `match: rule`) present.
+1. **Open (coverage):** SARIF fingerprint present (`match: rule` still accepts any fingerprint for that rule id).
 2. **Exact open set:** every SARIF open is an expected open or `known_incidental`.
-3. **Mitigated / unverified / waived:** status counts in `findings.json`, and each expected address must appear in a matching finding’s `addresses` list.
+3. **Mitigated / unverified / waived:** status counts in `findings.json`, and each expected address must appear in a matching finding’s `addresses` list. `address` on a flow row is the **To-element**.
 4. **DFD evidence:** `payload.json` flows/elements carry the attributes that drive mitigated/open drivers (`authz_scope`, `region`, kinds).
+
+### Fingerprints (`fray/v1`)
+
+The client uses one function for every open finding (`render/sarif.go` `Fingerprint`, called with `CauseAddress`):
+
+`sha256("<rule_id>|<cause Terraform address>")`
+
+`CauseAddress` (`render/comment.go`) is the Terraform address that set the failing attribute when that cause is recorded, otherwise the target’s own address.
+
+**Element rows** omit `flow`. The cause is the element address (first evidence address), so the script hashes `rule|address`. Example: `FR-036|aws_s3_bucket.uploads`.
+
+**Flow rows** set `flow`. The hashed cause is often **not** the from or to address. `CauseAddress` reads `flow.Causes[<failed attribute>]` (in-memory only; `Causes` is not in the DFD JSON). When that is set, put it in `flow.cause`. If `cause` is omitted, the script uses `flow.to`, then `flow.from` (`defaultCause`: To-element, then From-element). `address` stays the To-element for membership checks. `from`, `to`, and `data_class` name the edge (`aws_ecs_service.worker` → `aws_db_instance.main`, `data_class` `unknown`).
+
+FR-028 on that edge fails `authz_scope`. The cause is `data.aws_iam_policy_document.worker_rds`, so the input string is `FR-028|data.aws_iam_policy_document.worker_rds` (not `rule|from|to|data_class` and not the flow id).
+
+**`match: rule`** is still right when the cause is not a Terraform address you can name, for example a signal address such as FR-017 (`signal:iam_service:bedrock`). Any open SARIF result with that rule id counts.
 
 Mitigated, unverified and waived results are checked by Terraform address (`findings.json` `addresses`, fray v0.27.0+).
 

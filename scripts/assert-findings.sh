@@ -9,20 +9,22 @@
 #   findings.json     — all findings (rule_id, target, status, severity) plus
 #                       optional local `addresses` (Terraform addresses; fray ≥ v0.26.0)
 #   findings.sarif    — open findings only; partialFingerprints["fray/v1"]
+#                       = sha256("<rule_id>|<cause address>") (render.Fingerprint)
 #   threat-model.md
 #   pr-comment.md
 #   payload.json      — when show-payload (exact POST body; redacted DFD)
 #   enrollment.json   — on enrollment soft-skip only
 #   base-source/      — when scanning a PR with base-commit
 #
-# Open rows: SARIF fingerprint (or match:"rule") must be present; exact-set —
-# every SARIF open must be expected open or known_incidental.
+# Open rows: SARIF fingerprint (flow.cause, element address, or match:"rule")
+# must be present; exact-set — every SARIF open must be expected open or
+# known_incidental.
 # Mitigated / unverified / waived: findings.json status counts plus
 # addresses CONTAINS the expected Terraform address (v0.26.0+).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-EXPECTED="${ROOT}/expected/findings.json"
+EXPECTED="${EXPECTED:-${ROOT}/expected/findings.json}"
 SARIF_FILE="${SARIF_FILE:-${1:-}}"
 HAS_SARIF="${HAS_SARIF:-true}"
 
@@ -51,8 +53,32 @@ expected_path, sarif_path, findings_path, payload_path = sys.argv[1:5]
 exp = json.load(open(expected_path))
 sarif = json.load(open(sarif_path))
 
-def fingerprint(rule: str, address: str) -> str:
-    return hashlib.sha256(f"{rule}|{address}".encode()).hexdigest()
+def fingerprint(rule: str, cause: str) -> str:
+    # render.Fingerprint: sha256 hex of "<rule_id>|<cause Terraform address>".
+    return hashlib.sha256(f"{rule}|{cause}".encode()).hexdigest()
+
+def flow_cause(flow: dict) -> str:
+    """Right-hand side of the client fingerprint for one flow finding.
+
+    CauseAddress (render/comment.go) uses the flow's Causes[failed attribute]
+    when that is set, otherwise the To-element address, then the From-element
+    address. Causes is not in the DFD JSON. `cause` is that address when it
+    is not the To-element (FR-028: the IAM document). Omitted `cause` falls
+    back to `to`, then `from` (defaultCause).
+    """
+    cause = str(flow.get("cause") or "").strip()
+    if cause:
+        return cause
+    to = str(flow.get("to") or "").strip()
+    if to:
+        return to
+    return str(flow.get("from") or "").strip()
+
+def row_open_cause(row: dict) -> str:
+    flow = row.get("flow")
+    if isinstance(flow, dict):
+        return flow_cause(flow)
+    return str(row.get("address") or "")
 
 def _redaction_key():
     raw = (os.environ.get("FRAY_REDACTION_KEY") or "").strip()
@@ -113,12 +139,16 @@ for row in exp.get("findings") or []:
     label = f"{rule} @ {address} (want {verdict})"
 
     if verdict == "open":
-        if match == "rule":
+        if match == "rule" and not isinstance(row.get("flow"), dict):
             expected_open_rules_match.add(rule)
             if rule not in rules_present:
                 errors.append(f"missing open rule in SARIF: {label}")
         else:
-            fp = fingerprint(rule, address)
+            cause = row_open_cause(row)
+            if not cause:
+                errors.append(f"open row has no fingerprint cause: {label}")
+                continue
+            fp = fingerprint(rule, cause)
             expected_open_fps.add(fp)
             if fp not in sarif_fps:
                 got = sorted(fp_ for fp_, r in sarif_fps.items() if r == rule) or ["(none)"]
@@ -129,8 +159,9 @@ for row in exp.get("findings") or []:
                 )
     elif verdict in ("mitigated", "unverified", "waived"):
         # Must not appear as open fingerprints.
-        if match != "rule":
-            fp = fingerprint(rule, address)
+        if match != "rule" or isinstance(row.get("flow"), dict):
+            cause = row_open_cause(row)
+            fp = fingerprint(rule, cause) if cause else ""
             if fp in sarif_fps:
                 errors.append(f"SARIF has finding that should be {verdict}: {label} fp={fp}")
         key = (rule, verdict)
@@ -146,10 +177,12 @@ for row in exp.get("known_incidental") or []:
     rule = row["rule"]
     address = row["address"]
     match = row.get("match", "fingerprint")
-    if match == "rule":
+    if match == "rule" and not isinstance(row.get("flow"), dict):
         incidental_rules_match.add(rule)
     else:
-        incidental_fps.add(fingerprint(rule, address))
+        cause = row_open_cause(row)
+        if cause:
+            incidental_fps.add(fingerprint(rule, cause))
 
 # --- exact open set: every SARIF result must be expected or incidental ---
 allowed_fps = expected_open_fps | incidental_fps
