@@ -319,6 +319,120 @@ resource "aws_s3_bucket" "worker" {
   bucket = "${local.name}-worker-fake"
 }
 
+# ---------------------------------------------------------------------------
+# (g) B-14 R1 — EC2 + ASG instance-profile IAM (infra now; IAM-derived flows
+# need Fray Action v0.33.0+). Plan-only / LocalStack-compatible.
+# app_vm: scoped S3 on uploads (FR-032 mitigated once client emits VM→S3).
+# db_worker ASG: rds-db:connect on "*" (FR-028 open once client links ASG→RDS).
+# Both workloads are private (no public IP); FR-034 stays mitigated, not open.
+# ---------------------------------------------------------------------------
+
+resource "aws_iam_role" "ec2_app" {
+  name               = "${local.name}-ec2-app"
+  assume_role_policy = local.assume_ec2
+}
+
+resource "aws_iam_role_policy" "ec2_app_s3" {
+  name = "ec2-app-s3"
+  role = aws_iam_role.ec2_app.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:PutObject", "s3:GetObject"]
+      Resource = [
+        "arn:aws:s3:::${aws_s3_bucket.uploads.bucket}",
+        "arn:aws:s3:::${aws_s3_bucket.uploads.bucket}/*",
+      ]
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "ec2_app" {
+  name = "${local.name}-ec2-app"
+  role = aws_iam_role.ec2_app.name
+}
+
+resource "aws_security_group" "app_vm" {
+  name   = "${local.name}-app-vm"
+  vpc_id = aws_vpc.this.id
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "app_vm" {
+  ami                         = local.fake_ami
+  instance_type               = "t3.micro"
+  subnet_id                   = aws_subnet.private.id
+  associate_public_ip_address = false
+  iam_instance_profile        = aws_iam_instance_profile.ec2_app.name
+  vpc_security_group_ids      = [aws_security_group.app_vm.id]
+  tags                        = { Name = "${local.name}-app-vm" }
+}
+
+resource "aws_iam_role" "asg_db" {
+  name               = "${local.name}-asg-db"
+  assume_role_policy = local.assume_ec2
+}
+
+resource "aws_iam_role_policy" "asg_db_rds" {
+  name = "asg-db-rds"
+  role = aws_iam_role.asg_db.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["rds-db:connect"]
+      Resource = ["*"]
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "asg_db" {
+  name = "${local.name}-asg-db"
+  role = aws_iam_role.asg_db.name
+}
+
+resource "aws_security_group" "db_worker" {
+  name   = "${local.name}-db-worker"
+  vpc_id = aws_vpc.this.id
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_launch_template" "db_worker" {
+  name_prefix   = "${local.name}-db-worker-"
+  image_id      = local.fake_ami
+  instance_type = "t3.micro"
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.asg_db.name
+  }
+
+  vpc_security_group_ids = [aws_security_group.db_worker.id]
+}
+
+resource "aws_autoscaling_group" "db_worker" {
+  name                = "${local.name}-db-worker"
+  min_size            = 1
+  max_size            = 1
+  desired_capacity    = 1
+  vpc_zone_identifier = [aws_subnet.private.id]
+
+  launch_template {
+    id      = aws_launch_template.db_worker.id
+    version = "1"
+  }
+}
+
 resource "aws_secretsmanager_secret" "app" {
   name = "${local.name}-app-fake"
 }
@@ -578,7 +692,12 @@ resource "aws_security_group" "db" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.app.id, aws_security_group.worker.id, aws_security_group.declared.id]
+    security_groups = [
+      aws_security_group.app.id,
+      aws_security_group.worker.id,
+      aws_security_group.declared.id,
+      aws_security_group.db_worker.id,
+    ]
   }
 
   egress {

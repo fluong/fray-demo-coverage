@@ -66,11 +66,34 @@ The app task def references a root secret via
 `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan create →
 `container_definitions` unknown; Fray reads it from the configuration).
 
-Pinned Fray Action: **v0.27.0**.
+Pinned Fray Action: **v0.32.0** (see `.github/workflows/fray.yml`).
+
+### B-14 instance-profile workloads (infra now)
+
+Two extra compute paths exercise IAM instance profiles (plan-only, private
+subnets, no world-open admin ports):
+
+| Resource | IAM | Intended coverage (client) |
+|----------|-----|----------------------------|
+| `aws_instance.app_vm` | `ec2_app` → S3 Put/Get on `uploads` only | FR-032 mitigated on `app_vm`→`uploads` once IAM-derived VM flows ship |
+| `aws_autoscaling_group.db_worker` | `asg_db` → `rds-db:connect` on `*` via pinned LT | FR-028 open on `db_worker`→`db` once ASG SG wiring + IAM flows ship |
+
+On **Action v0.32.0** the parser still builds VM/ASG elements and FR-034
+drivers, but it does **not** attach instance-profile IAM to S3/RDS flows; CI
+expected rows for those rules are unchanged. Plan warnings include
+`no mapping for aws_iam_instance_profile.*` (supporting resources, not DFD
+elements).
+
+**Action v0.33.0 or later** (after the public client release that adds B-14 R1)
+is required before asserting the new FR-032 / FR-028 flow rows and
+`dfd_evidence` ids `vm-s3-resource-scoped` and `asg-db-scope-account` in
+`expected/findings.json` (committed via `scripts/client-release.sh
+--coverage-expected` with the pin bump).
 
 ### Known gaps
 
-None currently.
+Until Action v0.33.0: no expected rows for VM/ASG IAM-derived S3 or RDS flows
+(B-14 R1 client).
 
 ### Known incidental opens
 
