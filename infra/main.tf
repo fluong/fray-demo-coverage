@@ -435,6 +435,58 @@ resource "aws_ecs_service" "worker" {
   }
 }
 
+# Declared DB scope: the task role's only database policy is a managed-policy
+# ARN with no in-plan document, so the parser emits the SG flow without
+# authz_scope. fray.yaml fills account (see annotations.flows). Not on the ALB.
+resource "aws_iam_role" "ecs_task_declared" {
+  name               = "${local.name}-ecs-task-declared"
+  assume_role_policy = local.assume_ecs
+}
+
+resource "aws_iam_role_policy_attachment" "declared_rds" {
+  role       = aws_iam_role.ecs_task_declared.name
+  policy_arn = "arn:aws:iam::123456789012:policy/app-db"
+}
+
+resource "aws_ecs_task_definition" "declared" {
+  family                   = "${local.name}-declared"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_exec.arn
+  task_role_arn            = aws_iam_role.ecs_task_declared.arn
+  container_definitions = jsonencode([{
+    name      = "declared"
+    image     = "public.ecr.aws/docker/library/nginx:1.27"
+    essential = true
+  }])
+}
+
+resource "aws_security_group" "declared" {
+  name   = "${local.name}-declared"
+  vpc_id = aws_vpc.this.id
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_ecs_service" "declared" {
+  name            = "${local.name}-declared"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.declared.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = [aws_subnet.public.id]
+    security_groups  = [aws_security_group.declared.id]
+    assign_public_ip = true
+  }
+}
+
 # App task role: literal + data-doc → uploads bucket only.
 resource "aws_iam_role_policy" "known" {
   name = "known-literal-arns"
@@ -526,7 +578,7 @@ resource "aws_security_group" "db" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.app.id, aws_security_group.worker.id]
+    security_groups = [aws_security_group.app.id, aws_security_group.worker.id, aws_security_group.declared.id]
   }
 
   egress {

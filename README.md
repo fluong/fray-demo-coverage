@@ -50,10 +50,14 @@ context.
 | FR-001 | `aws_lambda_function_url.open` | open | Function URL `authorization_type = NONE` |
 | FR-001 | `aws_lb.cognito` | mitigated | Cognito-authenticated HTTPS listener on an internet ALB |
 
-Flat layout (four files, no modules). Two root ECS task definitions (`app`,
-`worker`) each with their own task role and bucket. App task def references a
-root secret via `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan
-create → `container_definitions` unknown; Fray reads it from the configuration).
+Flat layout (four files, no modules). Root ECS task definitions `app` and
+`worker` each have their own task role and bucket. `declared` reaches the same
+database through its security group. Its task role attaches the database grant
+only as a managed-policy ARN, so the parser omits `authz_scope` and FR-028 does
+not select that flow.
+The app task def references a root secret via
+`valueFrom = aws_secretsmanager_secret.app.arn` (same-plan create →
+`container_definitions` unknown; Fray reads it from the configuration).
 
 Pinned Fray Action: **v0.27.0**.
 
@@ -70,6 +74,7 @@ Listed under `known_incidental` in `expected/findings.json` (exact-set assert).
 |------|---------|-----|
 | FR-005 | `aws_ecs_service.app` | Mutable `nginx:1.27` tag |
 | FR-005 | `aws_ecs_service.worker` | Mutable `nginx:1.27` tag |
+| FR-005 | `aws_ecs_service.declared` | Mutable `nginx:1.27` tag |
 | FR-003 | `aws_ecs_service.app` | ECS `secrets[].valueFrom` is always env injection |
 | FR-009 | `aws_secretsmanager_secret.app` | No rotation on the coverage secret |
 

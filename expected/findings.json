@@ -167,6 +167,12 @@
       "why": "Mutable nginx:1.27 tag on worker service; fixture noise (B-44)"
     },
     {
+      "rule": "FR-005",
+      "address": "aws_ecs_service.declared",
+      "verdict": "open",
+      "why": "Mutable nginx:1.27 tag on the declared-scope service; fixture noise"
+    },
+    {
       "rule": "FR-003",
       "address": "aws_ecs_service.app",
       "verdict": "open",
@@ -271,6 +277,20 @@
           "to_kind": "object_storage",
           "from_address": "aws_ecs_service.app",
           "to_address": "aws_s3_bucket.worker"
+        }
+      }
+    },
+    {
+      "id": "declared-db-scope-omitted",
+      "for": "managed-policy ARN only: parser omits authz_scope",
+      "require": {
+        "flow": {
+          "authz_scope_absent": true,
+          "data_class": "unknown",
+          "from_kind": "container_service",
+          "to_kind": "relational_db",
+          "from_address": "aws_ecs_service.declared",
+          "to_address": "aws_db_instance.main"
         }
       }
     },
