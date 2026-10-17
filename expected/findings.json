@@ -187,6 +187,42 @@
         "data_class": "unknown",
         "cause": "aws_iam_role_policy.asg_db_rds"
       }
+    },
+    {
+      "rule": "FR-040",
+      "address": "aws_dynamodb_table.sessions",
+      "verdict": "mitigated",
+      "why": "deletion_protection_enabled=true → provider_deletion_protection on nosql_db element (Action v0.34.0+)"
+    },
+    {
+      "rule": "FR-040",
+      "address": "aws_dynamodb_table.audit",
+      "verdict": "open",
+      "why": "deletion_protection_enabled=false → provider console/API delete allowed (Action v0.34.0+)"
+    },
+    {
+      "rule": "FR-039",
+      "address": "aws_dynamodb_table.sessions",
+      "verdict": "mitigated",
+      "why": "app task role inline GetItem/PutItem/Query on sessions ARN and index/* only → authz_scope=resource (Action v0.34.0+)",
+      "flow": {
+        "from": "aws_ecs_service.app",
+        "to": "aws_dynamodb_table.sessions",
+        "data_class": "unknown",
+        "cause": "data.aws_iam_policy_document.app_dynamodb_sessions"
+      }
+    },
+    {
+      "rule": "FR-039",
+      "address": "aws_dynamodb_table.audit",
+      "verdict": "open",
+      "why": "audit_writer role: dynamodb:* on \"*\" with audit table explicitly named → authz_scope=account on audit_writer→audit only (Action v0.34.0+)",
+      "flow": {
+        "from": "aws_lambda_function.audit_writer",
+        "to": "aws_dynamodb_table.audit",
+        "data_class": "unknown",
+        "cause": "data.aws_iam_policy_document.audit_writer_ddb"
+      }
     }
   ],
   "known_incidental": [
@@ -368,6 +404,47 @@
           "to_kind": "relational_db",
           "from_address": "aws_autoscaling_group.db_worker",
           "to_address": "aws_db_instance.main"
+        }
+      }
+    },
+    {
+      "id": "sessions-scoped",
+      "for": "B-14 R2: app ECS task role → sessions table only (Action v0.34.0+)",
+      "require": {
+        "flow": {
+          "authz_scope": "resource",
+          "data_class": "unknown",
+          "from_kind": "container_service",
+          "to_kind": "nosql_db",
+          "from_address": "aws_ecs_service.app",
+          "to_address": "aws_dynamodb_table.sessions"
+        }
+      }
+    },
+    {
+      "id": "audit-account",
+      "for": "B-14 R2: audit_writer Lambda → audit with account-wide DynamoDB grant (Action v0.34.0+)",
+      "require": {
+        "flow": {
+          "authz_scope": "account",
+          "data_class": "unknown",
+          "from_kind": "serverless_function",
+          "to_kind": "nosql_db",
+          "from_address": "aws_lambda_function.audit_writer",
+          "to_address": "aws_dynamodb_table.audit"
+        }
+      }
+    },
+    {
+      "id": "no-audit-writer-to-sessions",
+      "for": "B-14 R2: audit_writer role does not name sessions → no DynamoDB flow to sessions",
+      "require": {
+        "flow": {
+          "absent": true,
+          "from_kind": "serverless_function",
+          "to_kind": "nosql_db",
+          "from_address": "aws_lambda_function.audit_writer",
+          "to_address": "aws_dynamodb_table.sessions"
         }
       }
     }
