@@ -43,6 +43,8 @@ locals {
       Principal = { Service = "ecs-tasks.amazonaws.com" }
     }]
   })
+  # B-72 negative: policy Resource via local (not a direct bucket attribute ref).
+  b72_local_resource = "arn:aws:s3:::${local.name}-b72-local-fake/*"
 }
 
 resource "aws_vpc" "this" {
@@ -764,6 +766,7 @@ resource "aws_security_group" "db" {
       aws_security_group.worker.id,
       aws_security_group.declared.id,
       aws_security_group.db_worker.id,
+      aws_security_group.db_control_wildcard.id,
     ]
   }
 
@@ -978,4 +981,377 @@ resource "aws_lb_listener" "https" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.app.arn
   }
+}
+
+# ---------------------------------------------------------------------------
+# (h) B-14 R3 — ElastiCache (Action v0.35.0+ for cache kind + FR-041/042/043).
+# Plan-only; private subnets. v0.34.1 ignores these resource types in the DFD.
+# ---------------------------------------------------------------------------
+
+resource "aws_elasticache_subnet_group" "cache" {
+  name       = "${local.name}-cache"
+  subnet_ids = [aws_subnet.private.id, aws_subnet.private_b.id]
+}
+
+resource "aws_security_group" "cache_redis_secure" {
+  name        = "${local.name}-cache-redis-secure"
+  description = "Redis cache: app SG only (FR-041 mitigated at v0.35+)"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_elasticache_replication_group" "cache_redis_secure" {
+  replication_group_id       = "${local.name}-redis-secure"
+  description                = "R3 cache fixture: restricted SG + encryption on"
+  engine                     = "redis"
+  engine_version             = "7.0"
+  node_type                  = "cache.t3.micro"
+  num_cache_clusters         = 1
+  parameter_group_name       = "default.redis7"
+  port                       = 6379
+  subnet_group_name          = aws_elasticache_subnet_group.cache.name
+  security_group_ids         = [aws_security_group.cache_redis_secure.id]
+  transit_encryption_enabled = true
+  at_rest_encryption_enabled = true
+}
+
+resource "aws_security_group" "cache_redis_open" {
+  name        = "${local.name}-cache-redis-open"
+  description = "Redis cache: world ingress on 6379 (FR-041/042/043 open at v0.35+)"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_elasticache_replication_group" "cache_redis_open" {
+  replication_group_id       = "${local.name}-redis-open"
+  description                = "R3 cache fixture: 0.0.0.0/0 + encryption off"
+  engine                     = "redis"
+  engine_version             = "7.0"
+  node_type                  = "cache.t3.micro"
+  num_cache_clusters         = 1
+  parameter_group_name       = "default.redis7"
+  port                       = 6379
+  subnet_group_name          = aws_elasticache_subnet_group.cache.name
+  security_group_ids         = [aws_security_group.cache_redis_open.id]
+  transit_encryption_enabled = false
+  at_rest_encryption_enabled = false
+}
+
+resource "aws_security_group" "cache_memcached" {
+  name        = "${local.name}-cache-memcached"
+  description = "Memcached: restricted ingress (FR-041/042 mitigated; no FR-043 on memcached)"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    from_port       = 11211
+    to_port         = 11211
+    protocol        = "tcp"
+    security_groups = [aws_security_group.worker.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_elasticache_cluster" "cache_memcached" {
+  cluster_id                 = "${local.name}-memcached"
+  engine                     = "memcached"
+  engine_version             = "1.6.17"
+  node_type                  = "cache.t3.micro"
+  num_cache_nodes            = 1
+  parameter_group_name       = "default.memcached1.6"
+  port                       = 11211
+  subnet_group_name          = aws_elasticache_subnet_group.cache.name
+  security_group_ids         = [aws_security_group.cache_memcached.id]
+  transit_encryption_enabled = true
+}
+
+# ---------------------------------------------------------------------------
+# (i) FR-046 — RDS control-plane IAM on compute that already reaches the DB.
+# D: scoped ModifyDBInstance + CreateDBSnapshot on aws_db_instance.main (app task role).
+# E: second role with rds:* on * on a dedicated ECS service (private, DB SG peer).
+# Evaluated at Action v0.35.0+; v0.34.1 ignores control-plane actions.
+# ---------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "app_db_control" {
+  statement {
+    sid = "RDSControlPlaneScoped"
+    actions = [
+      "rds:ModifyDBInstance",
+      "rds:CreateDBSnapshot",
+    ]
+    resources = [aws_db_instance.main.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "app_db_control" {
+  name   = "app-db-control-plane"
+  role   = aws_iam_role.ecs_task.id
+  policy = data.aws_iam_policy_document.app_db_control.json
+}
+
+resource "aws_iam_role" "db_control_wildcard" {
+  name               = "${local.name}-db-control-wildcard"
+  assume_role_policy = local.assume_ecs
+}
+
+data "aws_iam_policy_document" "db_control_wildcard" {
+  statement {
+    sid       = "RDSControlPlaneAccount"
+    actions   = ["rds:*"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "db_control_wildcard" {
+  name   = "db-control-wildcard"
+  role   = aws_iam_role.db_control_wildcard.id
+  policy = data.aws_iam_policy_document.db_control_wildcard.json
+}
+
+resource "aws_ecs_task_definition" "db_control_wildcard" {
+  family                   = "${local.name}-db-control-wildcard"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_exec.arn
+  task_role_arn            = aws_iam_role.db_control_wildcard.arn
+  container_definitions = jsonencode([{
+    name      = "db-control"
+    image     = "public.ecr.aws/docker/library/nginx:1.27"
+    essential = true
+  }])
+}
+
+resource "aws_security_group" "db_control_wildcard" {
+  name   = "${local.name}-db-control-wildcard"
+  vpc_id = aws_vpc.this.id
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_ecs_service" "db_control_wildcard" {
+  name            = "${local.name}-db-control-wildcard"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.db_control_wildcard.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = [aws_subnet.private.id]
+    security_groups  = [aws_security_group.db_control_wildcard.id]
+    assign_public_ip = false
+  }
+}
+
+# ---------------------------------------------------------------------------
+# (j) B-71 — Lambda execution-role S3 grants (Action v0.35.0+ for Lambda→bucket flows).
+# F: one bucket, one Lambda, readable grant.
+# G: one role, two buckets in one statement, one Lambda.
+# H: AmazonS3ReadOnlyAccess + scoped inline on the same bucket → account scope.
+# ---------------------------------------------------------------------------
+
+resource "aws_s3_bucket" "b71_one" {
+  bucket = "${local.name}-b71-one-fake"
+}
+
+resource "aws_iam_role" "b71_reader" {
+  name               = "${local.name}-b71-reader"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "b71_reader_s3" {
+  name = "b71-reader-s3"
+  role = aws_iam_role.b71_reader.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["s3:GetObject", "s3:ListBucket"]
+      Resource = [
+        "arn:aws:s3:::${aws_s3_bucket.b71_one.bucket}",
+        "arn:aws:s3:::${aws_s3_bucket.b71_one.bucket}/*",
+      ]
+    }]
+  })
+}
+
+resource "aws_lambda_function" "b71_reader" {
+  function_name = "${local.name}-b71-reader"
+  role          = aws_iam_role.b71_reader.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+resource "aws_s3_bucket" "b71_a" {
+  bucket = "${local.name}-b71-a-fake"
+}
+
+resource "aws_s3_bucket" "b71_b" {
+  bucket = "${local.name}-b71-b-fake"
+}
+
+resource "aws_iam_role" "b71_dual" {
+  name               = "${local.name}-b71-dual"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "b71_dual_s3" {
+  name = "b71-dual-s3"
+  role = aws_iam_role.b71_dual.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["s3:GetObject"]
+      Resource = [
+        "arn:aws:s3:::${aws_s3_bucket.b71_a.bucket}/*",
+        "arn:aws:s3:::${aws_s3_bucket.b71_b.bucket}/*",
+      ]
+    }]
+  })
+}
+
+resource "aws_lambda_function" "b71_dual" {
+  function_name = "${local.name}-b71-dual"
+  role          = aws_iam_role.b71_dual.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+resource "aws_s3_bucket" "b71_h" {
+  bucket = "${local.name}-b71-h-fake"
+}
+
+resource "aws_iam_role" "b71_h" {
+  name               = "${local.name}-b71-h"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy_attachment" "b71_h_readonly" {
+  role       = aws_iam_role.b71_h.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy" "b71_h_scoped" {
+  name = "b71-h-scoped"
+  role = aws_iam_role.b71_h.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject"]
+      Resource = ["arn:aws:s3:::${aws_s3_bucket.b71_h.bucket}/*"]
+    }]
+  })
+}
+
+resource "aws_lambda_function" "b71_h" {
+  function_name = "${local.name}-b71-h"
+  role          = aws_iam_role.b71_h.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+# ---------------------------------------------------------------------------
+# (k) B-72 — jsonencode inline IAM with plan-unknown bucket ARNs (Action v0.35.0+).
+# I: Resource = "${aws_s3_bucket.X.arn}/*" in jsonencode → authz_scope=resource.
+# J: Resource built from local.* → authz_scope omitted (negative).
+# ---------------------------------------------------------------------------
+
+resource "aws_s3_bucket" "b72_jsonencode" {
+  bucket = "${local.name}-b72-jsonencode-fake"
+}
+
+resource "aws_iam_role" "b72_jsonencode" {
+  name               = "${local.name}-b72-jsonencode"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "b72_jsonencode" {
+  name = "b72-jsonencode-s3"
+  role = aws_iam_role.b72_jsonencode.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject"]
+      Resource = "${aws_s3_bucket.b72_jsonencode.arn}/*"
+    }]
+  })
+}
+
+resource "aws_lambda_function" "b72_jsonencode" {
+  function_name = "${local.name}-b72-jsonencode"
+  role          = aws_iam_role.b72_jsonencode.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+resource "aws_s3_bucket" "b72_local" {
+  bucket = "${local.name}-b72-local-fake"
+}
+
+resource "aws_iam_role" "b72_local" {
+  name               = "${local.name}-b72-local"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "b72_local" {
+  name = "b72-local-s3"
+  role = aws_iam_role.b72_local.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject"]
+      Resource = local.b72_local_resource
+    }]
+  })
+}
+
+resource "aws_lambda_function" "b72_local" {
+  function_name = "${local.name}-b72-local"
+  role          = aws_iam_role.b72_local.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
 }

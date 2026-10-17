@@ -223,6 +223,42 @@
         "data_class": "unknown",
         "cause": "data.aws_iam_policy_document.audit_writer_ddb"
       }
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.b71_one",
+      "verdict": "open",
+      "why": "B-71 prep bucket: no SSE configuration (Action v0.34.1; Lambda→S3 flows ship v0.35.0+)"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.b71_a",
+      "verdict": "open",
+      "why": "B-71 dual-bucket fixture (G): no SSE configuration at v0.34.1"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.b71_b",
+      "verdict": "open",
+      "why": "B-71 dual-bucket fixture (G): no SSE configuration at v0.34.1"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.b71_h",
+      "verdict": "open",
+      "why": "B-71 managed+inline fixture (H): no SSE configuration at v0.34.1"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.b72_jsonencode",
+      "verdict": "open",
+      "why": "B-72 jsonencode fixture (I): no SSE configuration at v0.34.1"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.b72_local",
+      "verdict": "open",
+      "why": "B-72 local Resource fixture (J): no SSE configuration at v0.34.1"
     }
   ],
   "known_incidental": [
@@ -255,6 +291,12 @@
       "address": "aws_secretsmanager_secret.app",
       "verdict": "open",
       "why": "No rotation on coverage secret; accepted fixture noise (B-43)"
+    },
+    {
+      "rule": "FR-005",
+      "address": "aws_ecs_service.db_control_wildcard",
+      "verdict": "open",
+      "why": "Mutable nginx:1.27 tag on FR-046 wildcard control-plane service; fixture noise"
     }
   ],
   "dfd_evidence": [
