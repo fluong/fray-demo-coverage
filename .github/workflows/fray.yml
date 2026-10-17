@@ -88,7 +88,7 @@ jobs:
           persist-credentials: false
 
       - id: fray
-        uses: fluong/fray@d7b2b91ef1d46ee2ae5c99c6f87ea4427ec8356d # v0.34.0
+        uses: fluong/fray@cbd0e0eb71ed454302532543a715cd99c4520988 # v0.34.1
         with:
           api-url: https://api.getfray.dev
           working-directory: infra
@@ -169,7 +169,7 @@ jobs:
           persist-credentials: false
 
       - id: fray
-        uses: fluong/fray@d7b2b91ef1d46ee2ae5c99c6f87ea4427ec8356d # v0.34.0
+        uses: fluong/fray@cbd0e0eb71ed454302532543a715cd99c4520988 # v0.34.1
         with:
           api-url: https://api.getfray.dev
           working-directory: infra
