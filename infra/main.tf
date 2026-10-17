@@ -44,7 +44,7 @@ locals {
     }]
   })
   # B-72 negative: policy Resource via local (not a direct bucket attribute ref).
-  b72_local_resource = "arn:aws:s3:::${local.name}-b72-local-fake/*"
+  b72_local_resource = "${aws_s3_bucket.b72_local.arn}/*"
 }
 
 resource "aws_vpc" "this" {
