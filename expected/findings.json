@@ -259,6 +259,138 @@
       "address": "aws_s3_bucket.b72_local",
       "verdict": "open",
       "why": "B-72 local Resource fixture (J): no SSE configuration at v0.34.1"
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_s3_bucket.b71_one",
+      "verdict": "mitigated",
+      "why": "F: b71_reader Lambda inline GetObject on b71_one only → authz_scope=resource (Action v0.35.0+)",
+      "flow": {
+        "from": "aws_lambda_function.b71_reader",
+        "to": "aws_s3_bucket.b71_one",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.b71_reader_s3"
+      }
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_s3_bucket.b71_a",
+      "verdict": "mitigated",
+      "why": "G: b71_dual inline policy names b71_a and b71_b ARNs → resource-scoped flows to each bucket (Action v0.35.0+)",
+      "flow": {
+        "from": "aws_lambda_function.b71_dual",
+        "to": "aws_s3_bucket.b71_a",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.b71_dual_s3"
+      }
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_s3_bucket.b71_b",
+      "verdict": "mitigated",
+      "why": "G: b71_dual second resource-scoped flow to b71_b (Action v0.35.0+)",
+      "flow": {
+        "from": "aws_lambda_function.b71_dual",
+        "to": "aws_s3_bucket.b71_b",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.b71_dual_s3"
+      }
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_s3_bucket.b72_jsonencode",
+      "verdict": "mitigated",
+      "why": "I: b72_jsonencode role policy read from HCL jsonencode when plan policy unknown → resource-scoped flow (Action v0.35.0+)",
+      "flow": {
+        "from": "aws_lambda_function.b72_jsonencode",
+        "to": "aws_s3_bucket.b72_jsonencode",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.b72_jsonencode"
+      }
+    },
+    {
+      "rule": "FR-032",
+      "address": "aws_s3_bucket.b71_h",
+      "verdict": "open",
+      "why": "H: AmazonS3ReadOnlyAccess attachment ARN not in-plan → authz_scope omitted; SARIF cause is the attachment (Action v0.35.0+)",
+      "flow": {
+        "from": "aws_lambda_function.b71_h",
+        "to": "aws_s3_bucket.b71_h",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy_attachment.b71_h_readonly"
+      }
+    },
+    {
+      "rule": "FR-041",
+      "address": "aws_elasticache_cluster.cache_memcached",
+      "verdict": "mitigated",
+      "why": "C: Memcached cluster SG restricts ingress to app peer — FR-041 network restriction (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-041",
+      "address": "aws_elasticache_replication_group.cache_redis_open",
+      "verdict": "open",
+      "why": "B: cache_redis_open allows 0.0.0.0/0 on 6379 — FR-041 network restriction open (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-041",
+      "address": "aws_elasticache_replication_group.cache_redis_secure",
+      "verdict": "mitigated",
+      "why": "A: cache_redis_secure restricted to app SG — FR-041 network restriction mitigated (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-042",
+      "address": "aws_elasticache_cluster.cache_memcached",
+      "verdict": "mitigated",
+      "why": "C: Memcached transit_encryption_enabled=true — FR-042 transit encryption (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-042",
+      "address": "aws_elasticache_replication_group.cache_redis_open",
+      "verdict": "open",
+      "why": "B: cache_redis_open transit encryption off — FR-042 transit encryption open (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-042",
+      "address": "aws_elasticache_replication_group.cache_redis_secure",
+      "verdict": "mitigated",
+      "why": "A: cache_redis_secure transit encryption on — FR-042 transit encryption mitigated (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-043",
+      "address": "aws_elasticache_replication_group.cache_redis_open",
+      "verdict": "open",
+      "why": "B: cache_redis_open encryption at rest off (auth_token unset) — FR-043 Redis-only (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-043",
+      "address": "aws_elasticache_replication_group.cache_redis_secure",
+      "verdict": "mitigated",
+      "why": "A: cache_redis_secure encryption at rest on — FR-043 Redis-only mitigated (Action v0.35.0+)"
+    },
+    {
+      "rule": "FR-046",
+      "address": "aws_db_instance.main",
+      "verdict": "open",
+      "why": "D: app task role scoped RDS control-plane actions on main.arn only (medium; Action v0.35.0+)",
+      "flow": {
+        "from": "aws_ecs_service.app",
+        "to": "aws_db_instance.main",
+        "data_class": "unknown",
+        "cause": "data.aws_iam_policy_document.app_db_control"
+      }
+    },
+    {
+      "rule": "FR-046",
+      "address": "aws_db_instance.main",
+      "verdict": "open",
+      "why": "E: db_control_wildcard task role rds:* on * with network path to RDS (high; Action v0.35.0+)",
+      "flow": {
+        "from": "aws_ecs_service.db_control_wildcard",
+        "to": "aws_db_instance.main",
+        "data_class": "unknown",
+        "cause": "data.aws_iam_policy_document.db_control_wildcard"
+      }
     }
   ],
   "known_incidental": [
