@@ -320,6 +320,94 @@ resource "aws_s3_bucket" "worker" {
 }
 
 # ---------------------------------------------------------------------------
+# (f2) DynamoDB — B-14 R2 (Action v0.34.0+ for nosql_db + IAM table flows).
+# sessions: deletion protection on (FR-040 mitigated).
+# audit: deletion protection off (FR-040 open).
+# App task role: scoped GetItem/PutItem/Query on sessions (+ index/*) only →
+# FR-039 mitigated on app→sessions.
+# audit_writer Lambda: dynamodb:* on "*" plus explicit audit table ARN so the
+# client names audit only → one flow, account scope → FR-039 open on
+# audit_writer→audit (no flow to sessions).
+# ---------------------------------------------------------------------------
+
+resource "aws_dynamodb_table" "sessions" {
+  name                        = "${local.name}-sessions"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "audit" {
+  name                        = "${local.name}-audit"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = false
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_iam_role_policy" "app_dynamodb_sessions" {
+  name = "app-dynamodb-sessions"
+  role = aws_iam_role.ecs_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query",
+      ]
+      Resource = [
+        aws_dynamodb_table.sessions.arn,
+        "${aws_dynamodb_table.sessions.arn}/index/*",
+      ]
+    }]
+  })
+}
+
+resource "aws_iam_role" "audit_writer" {
+  name               = "${local.name}-audit-writer"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "audit_writer_ddb" {
+  name = "audit-writer-dynamodb"
+  role = aws_iam_role.audit_writer.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:*"]
+        Resource = ["*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:*"]
+        Resource = [aws_dynamodb_table.audit.arn]
+      },
+    ]
+  })
+}
+
+resource "aws_lambda_function" "audit_writer" {
+  function_name = "${local.name}-audit-writer"
+  role          = aws_iam_role.audit_writer.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+# ---------------------------------------------------------------------------
 # (g) B-14 R1 — EC2 + ASG instance-profile IAM (infra now; IAM-derived flows
 # need Fray Action v0.33.0+). Plan-only / LocalStack-compatible.
 # app_vm: scoped S3 on uploads (FR-032 mitigated once client emits VM→S3).

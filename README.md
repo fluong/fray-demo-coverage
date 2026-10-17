@@ -90,6 +90,25 @@ is required before asserting the new FR-032 / FR-028 flow rows and
 `expected/findings.json` (committed via `scripts/client-release.sh
 --coverage-expected` with the pin bump).
 
+### DynamoDB fixtures (B-14 R2 prep)
+
+Plan-only tables `aws_dynamodb_table.sessions` (provider deletion protection
+**on**) and `aws_dynamodb_table.audit` (**off**), plus IAM on the existing app
+ECS task role and a dedicated `aws_lambda_function.audit_writer` role.
+
+| Resource | Intended coverage (Fray **Action v0.34.0+**) |
+|----------|-----------------------------------------------|
+| `aws_dynamodb_table.sessions` | FR-040 mitigated (`deletion_protection_enabled = true`) |
+| `aws_dynamodb_table.audit` | FR-040 open |
+| `aws_ecs_service.app` → `sessions` | FR-039 mitigated (task role scoped to sessions ARN + `index/*` only) |
+| `aws_lambda_function.audit_writer` → `audit` | FR-039 open (`dynamodb:*` on `"*"` plus explicit audit ARN → account scope, audit named) |
+
+On **Action v0.33.2** the client does not map `aws_dynamodb_table` yet; the plan
+emits `no mapping for aws_dynamodb_table.*; skipped` warnings only. **No new
+expected rows** until the workflow pin reaches v0.34.0 and
+`expected/findings.json` is updated (FR-039/FR-040 flow rows,
+`sessions-scoped` / `audit-account` `dfd_evidence`).
+
 ### Known gaps
 
 Until Action v0.33.0: no expected rows for VM/ASG IAM-derived S3 or RDS flows
