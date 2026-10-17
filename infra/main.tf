@@ -354,49 +354,28 @@ resource "aws_dynamodb_table" "audit" {
   }
 }
 
-resource "aws_iam_role_policy" "app_dynamodb_sessions" {
-  name = "app-dynamodb-sessions"
-  role = aws_iam_role.ecs_task.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:Query",
-      ]
-      Resource = [
-        aws_dynamodb_table.sessions.arn,
-        "${aws_dynamodb_table.sessions.arn}/index/*",
-      ]
-    }]
-  })
-}
-
 resource "aws_iam_role" "audit_writer" {
   name               = "${local.name}-audit-writer"
   assume_role_policy = local.assume_lambda
 }
 
+data "aws_iam_policy_document" "audit_writer_ddb" {
+  statement {
+    sid       = "DynamoDBAccountWide"
+    actions   = ["dynamodb:*"]
+    resources = ["*"]
+  }
+  statement {
+    sid       = "DynamoDBAuditTable"
+    actions   = ["dynamodb:*"]
+    resources = [aws_dynamodb_table.audit.arn]
+  }
+}
+
 resource "aws_iam_role_policy" "audit_writer_ddb" {
-  name = "audit-writer-dynamodb"
-  role = aws_iam_role.audit_writer.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["dynamodb:*"]
-        Resource = ["*"]
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["dynamodb:*"]
-        Resource = [aws_dynamodb_table.audit.arn]
-      },
-    ]
-  })
+  name   = "audit-writer-dynamodb"
+  role   = aws_iam_role.audit_writer.id
+  policy = data.aws_iam_policy_document.audit_writer_ddb.json
 }
 
 resource "aws_lambda_function" "audit_writer" {
@@ -828,6 +807,27 @@ resource "aws_iam_role_policy" "app_rds" {
   name   = "app-rds-connect"
   role   = aws_iam_role.ecs_task.id
   policy = data.aws_iam_policy_document.app_rds.json
+}
+
+data "aws_iam_policy_document" "app_dynamodb_sessions" {
+  statement {
+    sid = "DynamoDBSessions"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:Query",
+    ]
+    resources = [
+      aws_dynamodb_table.sessions.arn,
+      "${aws_dynamodb_table.sessions.arn}/index/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "app_dynamodb_sessions" {
+  name   = "app-dynamodb-sessions"
+  role   = aws_iam_role.ecs_task.id
+  policy = data.aws_iam_policy_document.app_dynamodb_sessions.json
 }
 
 data "aws_iam_policy_document" "worker_rds" {
