@@ -1355,3 +1355,220 @@ resource "aws_lambda_function" "b72_local" {
   runtime       = "nodejs20.x"
   filename      = "${path.module}/lambda_placeholder.zip"
 }
+
+# ---------------------------------------------------------------------------
+# (l) B-73 — DynamoDB table resource policies (Action v0.36.0+ for FR-048).
+# Separate tables from sessions/audit. No IAM flows to these tables on v0.35.2.
+# K–O: aws_dynamodb_resource_policy (skipped by parser until v0.36.0).
+# P: no resource policy (mitigated FR-048 once attrs emit false).
+# deletion_protection_enabled=true keeps FR-040 mitigated on v0.35.2 prep pin.
+# ---------------------------------------------------------------------------
+
+resource "aws_dynamodb_table" "ddb_rp_world" {
+  name                        = "${local.name}-ddb-rp-world"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_resource_policy" "ddb_rp_world" {
+  resource_arn = aws_dynamodb_table.ddb_rp_world.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "WorldGetItem"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "dynamodb:GetItem"
+      Resource  = aws_dynamodb_table.ddb_rp_world.arn
+    }]
+  })
+}
+
+resource "aws_dynamodb_table" "ddb_rp_foreign" {
+  name                        = "${local.name}-ddb-rp-foreign"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_resource_policy" "ddb_rp_foreign" {
+  resource_arn = aws_dynamodb_table.ddb_rp_foreign.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "ForeignRoot"
+      Effect = "Allow"
+      Principal = {
+        AWS = "arn:aws:iam::111122223333:root"
+      }
+      Action   = "dynamodb:GetItem"
+      Resource = aws_dynamodb_table.ddb_rp_foreign.arn
+    }]
+  })
+}
+
+resource "aws_dynamodb_table" "ddb_rp_same" {
+  name                        = "${local.name}-ddb-rp-same"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_resource_policy" "ddb_rp_same" {
+  resource_arn = aws_dynamodb_table.ddb_rp_same.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "SamePlanRole"
+      Effect = "Allow"
+      Principal = {
+        AWS = aws_iam_role.b71_reader.arn
+      }
+      Action   = "dynamodb:GetItem"
+      Resource = aws_dynamodb_table.ddb_rp_same.arn
+    }]
+  })
+}
+
+resource "aws_dynamodb_table" "ddb_rp_org" {
+  name                        = "${local.name}-ddb-rp-org"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_resource_policy" "ddb_rp_org" {
+  resource_arn = aws_dynamodb_table.ddb_rp_org.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "OrgRestrictedWorld"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "dynamodb:GetItem"
+      Resource  = aws_dynamodb_table.ddb_rp_org.arn
+      Condition = {
+        StringEquals = {
+          "aws:PrincipalOrgID" = "o-exampleorgid"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_dynamodb_table" "ddb_rp_deny_cond" {
+  name                        = "${local.name}-ddb-rp-deny-cond"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_resource_policy" "ddb_rp_deny_cond" {
+  resource_arn = aws_dynamodb_table.ddb_rp_deny_cond.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowOrg"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "dynamodb:GetItem"
+        Resource  = aws_dynamodb_table.ddb_rp_deny_cond.arn
+        Condition = {
+          StringEquals = {
+            "aws:PrincipalOrgID" = "o-exampleorgid"
+          }
+        }
+      },
+      {
+        Sid       = "DenyOtherOrg"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "dynamodb:*"
+        Resource  = aws_dynamodb_table.ddb_rp_deny_cond.arn
+        Condition = {
+          StringNotEquals = {
+            "aws:PrincipalOrgID" = "o-exampleorgid"
+          }
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_dynamodb_table" "ddb_rp_doc" {
+  name                        = "${local.name}-ddb-rp-doc"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+data "aws_iam_policy_document" "ddb_rp_doc" {
+  statement {
+    sid    = "SourceAccountRestricted"
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+    ]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    resources = [
+      aws_dynamodb_table.ddb_rp_doc.arn,
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = ["111122223333"]
+    }
+  }
+}
+
+resource "aws_dynamodb_resource_policy" "ddb_rp_doc" {
+  resource_arn = aws_dynamodb_table.ddb_rp_doc.arn
+  policy       = data.aws_iam_policy_document.ddb_rp_doc.json
+}
+
+resource "aws_dynamodb_table" "ddb_rp_none" {
+  name                        = "${local.name}-ddb-rp-none"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
