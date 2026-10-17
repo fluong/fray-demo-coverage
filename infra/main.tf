@@ -1550,8 +1550,8 @@ data "aws_iam_policy_document" "ddb_rp_doc" {
     ]
     condition {
       test     = "StringEquals"
-      variable = "aws:SourceAccount"
-      values   = ["111122223333"]
+      variable = "aws:SourceVpce"
+      values   = ["vpce-0123456789abcdef0"]
     }
   }
 }
