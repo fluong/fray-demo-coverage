@@ -1891,7 +1891,7 @@ resource "aws_secretsmanager_secret" "sm_rp_none" {
 # the current pin). No data.aws_caller_identity or allowed_account_ids.
 # Q-*: aws_sqs_queue + aws_sqs_queue_policy (queue_url, policy).
 # T-*: aws_sns_topic; T-DEFAULT has no aws_sns_topic_policy (AWS owner-only).
-# F45-*: new inline policies on existing b71_reader / b71_dual Lambdas only.
+# F45-*: dedicated Lambdas f45_res / f45_acc (b71_reader and b71_dual unchanged).
 # ---------------------------------------------------------------------------
 
 resource "aws_sqs_queue" "sqs_rp_world" {
@@ -2092,10 +2092,15 @@ resource "aws_sns_topic_policy" "sns_rp_owner" {
   })
 }
 
-# F45-RES: scoped SQS + SNS on b71_reader (existing S3 policy unchanged).
-resource "aws_iam_role_policy" "b71_reader_f45_queues" {
-  name = "b71-reader-f45-queues"
-  role = aws_iam_role.b71_reader.id
+# F45-RES: scoped SQS + SNS on a dedicated Lambda (same packaging as b71_reader).
+resource "aws_iam_role" "f45_res" {
+  name               = "${local.name}-f45-res"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "f45_res" {
+  name = "f45-res-queues"
+  role = aws_iam_role.f45_res.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -2115,10 +2120,23 @@ resource "aws_iam_role_policy" "b71_reader_f45_queues" {
   })
 }
 
-# F45-ACC: account-wide SQS on b71_dual (existing dual-bucket S3 policy unchanged).
-resource "aws_iam_role_policy" "b71_dual_sqs_account" {
-  name = "b71-dual-sqs-account"
-  role = aws_iam_role.b71_dual.id
+resource "aws_lambda_function" "f45_res" {
+  function_name = "${local.name}-f45-res"
+  role          = aws_iam_role.f45_res.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+# F45-ACC: account-wide SQS on a dedicated Lambda.
+resource "aws_iam_role" "f45_acc" {
+  name               = "${local.name}-f45-acc"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "f45_acc" {
+  name = "f45-acc-sqs"
+  role = aws_iam_role.f45_acc.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -2128,4 +2146,12 @@ resource "aws_iam_role_policy" "b71_dual_sqs_account" {
       Resource = ["*"]
     }]
   })
+}
+
+resource "aws_lambda_function" "f45_acc" {
+  function_name = "${local.name}-f45-acc"
+  role          = aws_iam_role.f45_acc.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
 }
