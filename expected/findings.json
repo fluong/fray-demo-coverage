@@ -153,6 +153,102 @@
       "why": "Foreign root principal on standalone policy; owning account not known at plan time (Action v0.40.0+)"
     },
     {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.f06_rest_public",
+      "verdict": "unverified",
+      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.f06_rest_public",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f06_rest_public",
+      "verdict": "mitigated",
+      "why": "No resource policy; resource_policy_world_principal and cross_account false"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.f06_rest_iam",
+      "verdict": "unverified",
+      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.f06_rest_iam",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f06_rest_iam",
+      "verdict": "mitigated",
+      "why": "No resource policy; resource_policy_world_principal and cross_account false"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.f06_rest_apikey",
+      "verdict": "unverified",
+      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.f06_rest_apikey",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f06_rest_apikey",
+      "verdict": "mitigated",
+      "why": "No resource policy; resource_policy_world_principal and cross_account false"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.f06_rest_custom",
+      "verdict": "unverified",
+      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.f06_rest_custom",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f06_rest_custom",
+      "verdict": "mitigated",
+      "why": "No resource policy; resource_policy_world_principal and cross_account false"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_apigatewayv2_api.f06_http_public",
+      "verdict": "unverified",
+      "why": "public_client \u2192 HTTP API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_apigatewayv2_api.f06_http_public",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 HTTP API edge; transport=tls (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_apigatewayv2_api.f06_http_jwt",
+      "verdict": "unverified",
+      "why": "public_client \u2192 HTTP API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_apigatewayv2_api.f06_http_jwt",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 HTTP API edge; transport=tls (Action v0.40.0+)"
+    },
+    {
       "rule": "FR-029",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",

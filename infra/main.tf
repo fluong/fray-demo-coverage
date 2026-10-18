@@ -2552,3 +2552,329 @@ resource "aws_api_gateway_stage" "f51_cross" {
   rest_api_id   = aws_api_gateway_rest_api.f51_cross.id
   stage_name    = "prod"
 }
+
+# ---------------------------------------------------------------------------
+# (p) OpenAPI body on API Gateway. F06-*: six APIs defined only by
+# body = jsonencode(OpenAPI 3.0.1); no aws_api_gateway_method /
+# aws_apigatewayv2_route resources; no resource policy; MOCK integrations
+# embedded in the spec; bodies are fully known literals (no ${...} refs).
+# ---------------------------------------------------------------------------
+
+locals {
+  f06_mock_rest_integration = {
+    type = "mock"
+    responses = {
+      default = {
+        statusCode = "200"
+      }
+    }
+    requestTemplates = {
+      "application/json" = "{\"statusCode\": 200}"
+    }
+  }
+
+  f06_mock_http_integration = {
+    payloadFormatVersion = "2.0"
+    type                 = "mock"
+    responses = {
+      default = {
+        statusCode = 200
+      }
+    }
+  }
+
+  f06_rest_public_body = jsonencode({
+    openapi = "3.0.1"
+    info = {
+      title   = "f06-rest-public"
+      version = "1.0"
+    }
+    paths = {
+      "/health" = {
+        get = merge({
+          responses = {
+            default = {
+              description = "ok"
+            }
+          }
+        }, { "x-amazon-apigateway-integration" = local.f06_mock_rest_integration })
+      }
+    }
+  })
+
+  f06_rest_iam_body = jsonencode({
+    openapi = "3.0.1"
+    info = {
+      title   = "f06-rest-iam"
+      version = "1.0"
+    }
+    paths = {
+      "/health" = {
+        get = merge({
+          responses = {
+            default = {
+              description = "ok"
+            }
+          }
+        }, { "x-amazon-apigateway-integration" = local.f06_mock_rest_integration })
+      }
+    }
+    security = [{ sigv4 = [] }]
+    components = {
+      securitySchemes = {
+        sigv4 = {
+          type                           = "apiKey"
+          name                           = "Authorization"
+          in                             = "header"
+          "x-amazon-apigateway-authtype" = "awsSigv4"
+        }
+      }
+    }
+  })
+
+  f06_rest_apikey_body = jsonencode({
+    openapi = "3.0.1"
+    info = {
+      title   = "f06-rest-apikey"
+      version = "1.0"
+    }
+    paths = {
+      "/health" = {
+        get = merge({
+          "x-amazon-apigateway-api-key-required" = true
+          responses = {
+            default = {
+              description = "ok"
+            }
+          }
+        }, { "x-amazon-apigateway-integration" = local.f06_mock_rest_integration })
+      }
+    }
+  })
+
+  f06_rest_custom_body = jsonencode({
+    openapi = "3.0.1"
+    info = {
+      title   = "f06-rest-custom"
+      version = "1.0"
+    }
+    paths = {
+      "/health" = {
+        get = merge({
+          security = [{ customAuth = [] }]
+          responses = {
+            default = {
+              description = "ok"
+            }
+          }
+        }, { "x-amazon-apigateway-integration" = local.f06_mock_rest_integration })
+      }
+    }
+    components = {
+      securitySchemes = {
+        customAuth = {
+          type                           = "apiKey"
+          name                           = "Authorization"
+          in                             = "header"
+          "x-amazon-apigateway-authtype" = "custom"
+          "x-amazon-apigateway-authorizer" = {
+            type              = "token"
+            authorizerUri     = "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:111122223333:function:f06-authorizer/invocations"
+            authorizerResultTtlInSeconds = 300
+          }
+        }
+      }
+    }
+  })
+
+  f06_http_public_body = jsonencode({
+    openapi = "3.0.1"
+    info = {
+      title   = "f06-http-public"
+      version = "1.0"
+    }
+    paths = {
+      "/health" = {
+        get = merge({
+          responses = {
+            default = {
+              description = "Default response for GET /health"
+            }
+          }
+        }, { "x-amazon-apigateway-integration" = local.f06_mock_http_integration })
+      }
+    }
+  })
+
+  f06_http_jwt_body = jsonencode({
+    openapi = "3.0.1"
+    info = {
+      title   = "f06-http-jwt"
+      version = "1.0"
+    }
+    paths = {
+      "/health" = {
+        get = merge({
+          security = [{ jwt = [] }]
+          responses = {
+            default = {
+              description = "Default response for GET /health"
+            }
+          }
+        }, { "x-amazon-apigateway-integration" = local.f06_mock_http_integration })
+      }
+    }
+    components = {
+      securitySchemes = {
+        jwt = {
+          type = "oauth2"
+          "x-amazon-apigateway-authorizer" = {
+            type = "jwt"
+            jwtConfiguration = {
+              issuer   = "https://auth.example.com/"
+              audience = ["example"]
+            }
+          }
+        }
+      }
+    }
+  })
+}
+
+# f06_rest_public: GET /health with no security in the OpenAPI document.
+# Later (Action v0.41.0+): network entry open once body auth is derived.
+
+resource "aws_api_gateway_rest_api" "f06_rest_public" {
+  name = "${local.name}-f06-rest-public"
+  body = local.f06_rest_public_body
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_deployment" "f06_rest_public" {
+  rest_api_id = aws_api_gateway_rest_api.f06_rest_public.id
+  triggers = {
+    redeployment = sha1(local.f06_rest_public_body)
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "f06_rest_public" {
+  deployment_id = aws_api_gateway_deployment.f06_rest_public.id
+  rest_api_id   = aws_api_gateway_rest_api.f06_rest_public.id
+  stage_name    = "prod"
+}
+
+# f06_rest_iam: global IAM SigV4 security scheme in the OpenAPI document.
+# Later (Action v0.41.0+): network entry mitigated (caller identity required).
+
+resource "aws_api_gateway_rest_api" "f06_rest_iam" {
+  name = "${local.name}-f06-rest-iam"
+  body = local.f06_rest_iam_body
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_deployment" "f06_rest_iam" {
+  rest_api_id = aws_api_gateway_rest_api.f06_rest_iam.id
+  triggers = {
+    redeployment = sha1(local.f06_rest_iam_body)
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "f06_rest_iam" {
+  deployment_id = aws_api_gateway_deployment.f06_rest_iam.id
+  rest_api_id   = aws_api_gateway_rest_api.f06_rest_iam.id
+  stage_name    = "prod"
+}
+
+# f06_rest_apikey: API key required on the operation only (not an identity check).
+# Later (Action v0.41.0+): network entry still open (API key is not authentication).
+
+resource "aws_api_gateway_rest_api" "f06_rest_apikey" {
+  name = "${local.name}-f06-rest-apikey"
+  body = local.f06_rest_apikey_body
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_deployment" "f06_rest_apikey" {
+  rest_api_id = aws_api_gateway_rest_api.f06_rest_apikey.id
+  triggers = {
+    redeployment = sha1(local.f06_rest_apikey_body)
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "f06_rest_apikey" {
+  deployment_id = aws_api_gateway_deployment.f06_rest_apikey.id
+  rest_api_id   = aws_api_gateway_rest_api.f06_rest_apikey.id
+  stage_name    = "prod"
+}
+
+# f06_rest_custom: Lambda TOKEN authorizer in the OpenAPI document (static URI).
+# Later (Action v0.41.0+): network entry unverified (custom authorizer).
+
+resource "aws_api_gateway_rest_api" "f06_rest_custom" {
+  name = "${local.name}-f06-rest-custom"
+  body = local.f06_rest_custom_body
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_deployment" "f06_rest_custom" {
+  rest_api_id = aws_api_gateway_rest_api.f06_rest_custom.id
+  triggers = {
+    redeployment = sha1(local.f06_rest_custom_body)
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "f06_rest_custom" {
+  deployment_id = aws_api_gateway_deployment.f06_rest_custom.id
+  rest_api_id   = aws_api_gateway_rest_api.f06_rest_custom.id
+  stage_name    = "prod"
+}
+
+# f06_http_public: HTTP API from OpenAPI; GET /health with no security.
+# Later (Action v0.41.0+): network entry open.
+
+resource "aws_apigatewayv2_api" "f06_http_public" {
+  name          = "${local.name}-f06-http-public"
+  protocol_type = "HTTP"
+  body          = local.f06_http_public_body
+}
+
+resource "aws_apigatewayv2_stage" "f06_http_public" {
+  api_id      = aws_apigatewayv2_api.f06_http_public.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+# f06_http_jwt: HTTP API with JWT authorizer in the OpenAPI document.
+# Later (Action v0.41.0+): network entry mitigated.
+
+resource "aws_apigatewayv2_api" "f06_http_jwt" {
+  name          = "${local.name}-f06-http-jwt"
+  protocol_type = "HTTP"
+  body          = local.f06_http_jwt_body
+}
+
+resource "aws_apigatewayv2_stage" "f06_http_jwt" {
+  api_id      = aws_apigatewayv2_api.f06_http_jwt.id
+  name        = "$default"
+  auto_deploy = true
+}

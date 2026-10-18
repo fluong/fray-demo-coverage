@@ -125,6 +125,24 @@ execution ARN).
 | `aws_api_gateway_rest_api.f51_private` | **PRIVATE** + same VPCE + Allow `*` + VPCE Deny |
 | `aws_api_gateway_rest_api.f51_cross` | No inline policy; `aws_api_gateway_rest_api_policy.f51_cross` Allow foreign root `444455556666` |
 
+### OpenAPI body fixtures (B-06)
+
+Section **(p)** in `infra/main.tf`: six API Gateway APIs defined only by an
+OpenAPI **3.0.1** document in `body` (`jsonencode`); no separate method or
+route resources; no resource policy; MOCK integrations live in the spec.
+
+| Resource | Auth in OpenAPI body | Action **v0.40.0** (current pin) | After next client pin (body auth) |
+|----------|----------------------|----------------------------------|-----------------------------------|
+| `aws_api_gateway_rest_api.f06_rest_public` | None (open GET /health) | FR-001 **unverified** (body not read for auth) | FR-001 **open** |
+| `aws_api_gateway_rest_api.f06_rest_iam` | Global IAM SigV4 scheme | FR-001 **unverified** | FR-001 **mitigated** |
+| `aws_api_gateway_rest_api.f06_rest_apikey` | API key required only | FR-001 **unverified** | FR-001 **open** (key is not caller identity) |
+| `aws_api_gateway_rest_api.f06_rest_custom` | Lambda TOKEN authorizer | FR-001 **unverified** | FR-001 **unverified** (custom authorizer) |
+| `aws_apigatewayv2_api.f06_http_public` | None | FR-001 **unverified** | FR-001 **open** |
+| `aws_apigatewayv2_api.f06_http_jwt` | JWT authorizer | FR-001 **unverified** | FR-001 **mitigated** |
+
+REST rows also carry **FR-051 mitigated** (no resource policy) and **FR-026
+mitigated** (TLS edge) on the current pin.
+
 ### Known gaps
 
 Until Action v0.33.0: no expected rows for VM/ASG IAM-derived S3 or RDS flows
