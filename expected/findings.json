@@ -111,6 +111,42 @@
       "why": "Internet ALB HTTPS listener authenticate-cognito before forward"
     },
     {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.f51_open",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; method AWS_IAM (not anonymous network entry) (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.f51_open",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls on resource-policy world-open entry (Action v0.40.0+)"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f51_open",
+      "verdict": "open",
+      "why": "Inline resource policy Allow * execute-api:Invoke with no VPCE/IP conditions"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f51_ip",
+      "verdict": "open",
+      "why": "World Allow + NotIpAddress Deny on aws:SourceIp (cross-account axis still open)"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f51_vpce",
+      "verdict": "mitigated",
+      "why": "Allow * mitigated by VPCE-source Deny when caller is not the in-plan endpoint"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f51_private",
+      "verdict": "mitigated",
+      "why": "PRIVATE endpoint + VPCE Deny; resource policy not world/cross open"
+    },
+    {
       "rule": "FR-029",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
