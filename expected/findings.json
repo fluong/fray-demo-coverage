@@ -283,6 +283,134 @@
       "why": "Deny with conditions makes effective access unclear (Action v0.36.0+)"
     },
     {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.s3_rp_world",
+      "verdict": "open",
+      "why": "Bucket policy allows any principal without a restricting condition (Action v0.37.0+; severity high)",
+      "flow": {
+        "to": "aws_s3_bucket.s3_rp_world",
+        "cause": "aws_s3_bucket_policy.s3_rp_world"
+      }
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.uploads",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.worker",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.b71_one",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.b71_a",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.b71_b",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.b71_h",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.b72_jsonencode",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.b72_local",
+      "verdict": "mitigated",
+      "why": "No bucket policy; both resource-policy attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.s3_rp_foreign",
+      "verdict": "unverified",
+      "why": "Foreign-account principal literal without a known owning account at plan time (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.s3_rp_same",
+      "verdict": "mitigated",
+      "why": "Policy principal is an in-plan IAM role in this account (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.s3_rp_org",
+      "verdict": "mitigated",
+      "why": "Principal * restricted by aws:PrincipalOrgID (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.s3_rp_doc",
+      "verdict": "mitigated",
+      "why": "Principal * restricted by aws:SourceVpce via data.aws_iam_policy_document (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.s3_rp_deny_cond",
+      "verdict": "unverified",
+      "why": "Deny with conditions makes effective access unclear (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-049",
+      "address": "aws_s3_bucket.s3_rp_bpa",
+      "verdict": "mitigated",
+      "why": "Block Public Access neutralises any-principal Allow on the bucket policy (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-050",
+      "address": "aws_secretsmanager_secret.sm_rp_world",
+      "verdict": "open",
+      "why": "Secret resource policy allows any principal without a restricting condition (Action v0.37.0+; severity high)",
+      "flow": {
+        "to": "aws_secretsmanager_secret.sm_rp_world",
+        "cause": "aws_secretsmanager_secret_policy.sm_rp_world"
+      }
+    },
+    {
+      "rule": "FR-050",
+      "address": "aws_secretsmanager_secret.app",
+      "verdict": "mitigated",
+      "why": "No resource policy; both attributes false (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-050",
+      "address": "aws_secretsmanager_secret.sm_rp_block",
+      "verdict": "mitigated",
+      "why": "block_public_policy on the secret policy neutralises any-principal Allow (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-050",
+      "address": "aws_secretsmanager_secret.sm_rp_same",
+      "verdict": "mitigated",
+      "why": "Policy principal is an in-plan IAM role in this account (Action v0.37.0+)"
+    },
+    {
+      "rule": "FR-050",
+      "address": "aws_secretsmanager_secret.sm_rp_none",
+      "verdict": "mitigated",
+      "why": "No resource policy; both attributes false (Action v0.37.0+)"
+    },
+    {
       "rule": "FR-036",
       "address": "aws_s3_bucket.b71_one",
       "verdict": "open",
