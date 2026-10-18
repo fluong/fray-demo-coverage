@@ -42,19 +42,19 @@
       "rule": "FR-032",
       "address": "aws_s3_bucket.uploads",
       "verdict": "mitigated",
-      "why": "app task_role: literal + data-doc PutObject/DeleteObject on uploads → authz_scope=resource (finding addresses the bucket To-element)"
+      "why": "app task_role: literal + data-doc PutObject/DeleteObject on uploads \u2192 authz_scope=resource (finding addresses the bucket To-element)"
     },
     {
       "rule": "FR-032",
       "address": "aws_s3_bucket.worker",
       "verdict": "mitigated",
-      "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket → authz_scope=resource (finding addresses the bucket To-element; B-44)"
+      "why": "worker task_role: literal + data-doc PutObject/DeleteObject on worker bucket \u2192 authz_scope=resource (finding addresses the bucket To-element; B-44)"
     },
     {
       "rule": "FR-032",
       "address": "aws_s3_bucket.uploads",
       "verdict": "mitigated",
-      "why": "app_vm ec2_app instance profile: inline PutObject/GetObject on uploads only → authz_scope=resource on app_vm→uploads (Action v0.33.0+)",
+      "why": "app_vm ec2_app instance profile: inline PutObject/GetObject on uploads only \u2192 authz_scope=resource on app_vm\u2192uploads (Action v0.33.0+)",
       "flow": {
         "from": "aws_instance.app_vm",
         "to": "aws_s3_bucket.uploads",
@@ -66,19 +66,19 @@
       "rule": "FR-035",
       "address": "aws_s3_bucket.uploads",
       "verdict": "mitigated",
-      "why": "app internet-reachable via public ALB; app→uploads transport=tls (finding addresses the bucket To-element)"
+      "why": "app internet-reachable via public ALB; app\u2192uploads transport=tls (finding addresses the bucket To-element)"
     },
     {
       "rule": "FR-036",
       "address": "aws_s3_bucket.uploads",
       "verdict": "open",
-      "why": "No SSE configuration → SSE-S3 default → customer_managed_key=false"
+      "why": "No SSE configuration \u2192 SSE-S3 default \u2192 customer_managed_key=false"
     },
     {
       "rule": "FR-036",
       "address": "aws_s3_bucket.worker",
       "verdict": "open",
-      "why": "No SSE configuration → SSE-S3 default → customer_managed_key=false"
+      "why": "No SSE configuration \u2192 SSE-S3 default \u2192 customer_managed_key=false"
     },
     {
       "rule": "FR-007",
@@ -90,7 +90,7 @@
       "rule": "FR-002",
       "address": "aws_ecs_service.app",
       "verdict": "unverified",
-      "why": "app becomes internet_reachable via ALB fronting; no aws_appautoscaling_target → max_instances absent"
+      "why": "app becomes internet_reachable via ALB fronting; no aws_appautoscaling_target \u2192 max_instances absent"
     },
     {
       "rule": "FR-001",
@@ -126,7 +126,7 @@
       "rule": "FR-031",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
-      "why": "engine=postgres engine_version=16, default parameter group → rds.force_ssl default ON → tls_enforced=true (client v0.31.0)"
+      "why": "engine=postgres engine_version=16, default parameter group \u2192 rds.force_ssl default ON \u2192 tls_enforced=true (client v0.31.0)"
     },
     {
       "rule": "FR-033",
@@ -144,7 +144,7 @@
       "rule": "FR-028",
       "address": "aws_db_instance.main",
       "verdict": "open",
-      "why": "worker task role rds-db:connect on \"*\" → authz_scope=account; SARIF cause is the policy document, not the To-element",
+      "why": "worker task role rds-db:connect on \"*\" \u2192 authz_scope=account; SARIF cause is the policy document, not the To-element",
       "flow": {
         "from": "aws_ecs_service.worker",
         "to": "aws_db_instance.main",
@@ -168,19 +168,19 @@
       "rule": "FR-028",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
-      "why": "app task role data-doc rds-db:connect on dbuser:${aws_db_instance.main.resource_id}/app → authz_scope=resource"
+      "why": "app task role data-doc rds-db:connect on dbuser:${aws_db_instance.main.resource_id}/app \u2192 authz_scope=resource"
     },
     {
       "rule": "FR-035",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
-      "why": "app internet-reachable via public ALB (B-56); app→db tls_enforced=true"
+      "why": "app internet-reachable via public ALB (B-56); app\u2192db tls_enforced=true"
     },
     {
       "rule": "FR-028",
       "address": "aws_db_instance.main",
       "verdict": "open",
-      "why": "asg_db instance profile: inline rds-db:connect on \"*\" → authz_scope=account on db_worker→db (Action v0.33.0+). FR-035 not selected: source not internet-reachable",
+      "why": "asg_db instance profile: inline rds-db:connect on \"*\" \u2192 authz_scope=account on db_worker\u2192db (Action v0.33.0+). FR-035 not selected: source not internet-reachable",
       "flow": {
         "from": "aws_autoscaling_group.db_worker",
         "to": "aws_db_instance.main",
@@ -192,19 +192,19 @@
       "rule": "FR-040",
       "address": "aws_dynamodb_table.sessions",
       "verdict": "mitigated",
-      "why": "deletion_protection_enabled=true → provider_deletion_protection on nosql_db element (Action v0.34.0+)"
+      "why": "deletion_protection_enabled=true \u2192 provider_deletion_protection on nosql_db element (Action v0.34.0+)"
     },
     {
       "rule": "FR-040",
       "address": "aws_dynamodb_table.audit",
       "verdict": "open",
-      "why": "deletion_protection_enabled=false → provider console/API delete allowed (Action v0.34.0+)"
+      "why": "deletion_protection_enabled=false \u2192 provider console/API delete allowed (Action v0.34.0+)"
     },
     {
       "rule": "FR-039",
       "address": "aws_dynamodb_table.sessions",
       "verdict": "mitigated",
-      "why": "app task role inline GetItem/PutItem/Query on sessions ARN and index/* only → authz_scope=resource (Action v0.34.0+)",
+      "why": "app task role inline GetItem/PutItem/Query on sessions ARN and index/* only \u2192 authz_scope=resource (Action v0.34.0+)",
       "flow": {
         "from": "aws_ecs_service.app",
         "to": "aws_dynamodb_table.sessions",
@@ -216,7 +216,7 @@
       "rule": "FR-039",
       "address": "aws_dynamodb_table.audit",
       "verdict": "open",
-      "why": "audit_writer role: dynamodb:* on \"*\" with audit table explicitly named → authz_scope=account on audit_writer→audit only (Action v0.34.0+)",
+      "why": "audit_writer role: dynamodb:* on \"*\" with audit table explicitly named \u2192 authz_scope=account on audit_writer\u2192audit only (Action v0.34.0+)",
       "flow": {
         "from": "aws_lambda_function.audit_writer",
         "to": "aws_dynamodb_table.audit",
@@ -414,7 +414,7 @@
       "rule": "FR-036",
       "address": "aws_s3_bucket.b71_one",
       "verdict": "open",
-      "why": "B-71 prep bucket: no SSE configuration (Action v0.34.1; Lambda→S3 flows ship v0.35.0+)"
+      "why": "B-71 prep bucket: no SSE configuration (Action v0.34.1; Lambda\u2192S3 flows ship v0.35.0+)"
     },
     {
       "rule": "FR-036",
@@ -450,7 +450,7 @@
       "rule": "FR-036",
       "address": "aws_s3_bucket.s3_rp_world",
       "verdict": "open",
-      "why": "S-K bucket policy fixture: AES256 SSE only → customer_managed_key=false (Action v0.36.0; FR-049 ships v0.37.0+)"
+      "why": "S-K bucket policy fixture: AES256 SSE only \u2192 customer_managed_key=false (Action v0.36.0; FR-049 ships v0.37.0+)"
     },
     {
       "rule": "FR-036",
@@ -495,10 +495,186 @@
       "why": "S-BPA: aws_s3_bucket_public_access_block with restrict_public_buckets=true (Action v0.36.0; FR-049 BPA axis ships v0.37.0+)"
     },
     {
+      "rule": "FR-044",
+      "address": "aws_sqs_queue.sqs_rp_world",
+      "verdict": "open",
+      "why": "Q-K: Principal * sqs:SendMessage no condition (Action v0.38.0+; severity high)",
+      "flow": {
+        "to": "aws_sqs_queue.sqs_rp_world",
+        "cause": "aws_sqs_queue_policy.sqs_rp_world"
+      }
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sqs_queue.sqs_rp_foreign",
+      "verdict": "unverified",
+      "why": "Q-L: foreign root principal without known owning account (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sqs_queue.sqs_rp_same",
+      "verdict": "mitigated",
+      "why": "Q-L2: in-plan IAM role principal (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sqs_queue.sqs_rp_org",
+      "verdict": "mitigated",
+      "why": "Q-M: Principal * with aws:PrincipalOrgID (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sqs_queue.sqs_rp_deny_cond",
+      "verdict": "unverified",
+      "why": "Q-N: Allow+Deny with conditions \u2014 effective access unclear (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sqs_queue.sqs_rp_doc",
+      "verdict": "mitigated",
+      "why": "Q-O: Principal * restricted by aws:SourceVpce via data.aws_iam_policy_document (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sqs_queue.sqs_rp_none",
+      "verdict": "mitigated",
+      "why": "Q-NONE: no queue policy in plan (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sns_topic.sns_rp_world",
+      "verdict": "open",
+      "why": "T-K: Principal * sns:Publish no condition (Action v0.38.0+; severity high)",
+      "flow": {
+        "to": "aws_sns_topic.sns_rp_world",
+        "cause": "aws_sns_topic_policy.sns_rp_world"
+      }
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sns_topic.sns_rp_default",
+      "verdict": "mitigated",
+      "why": "T-DEFAULT: no topic policy \u2014 AWS owner-only default (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-044",
+      "address": "aws_sns_topic.sns_rp_owner",
+      "verdict": "unverified",
+      "why": "T-OWNER: Principal * with AWS:SourceOwner without known owning account (Action v0.38.0+)"
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_world",
+      "verdict": "open",
+      "why": "F45-ACC: sqs:* on * \u2192 account scope to every queue (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_acc",
+        "to": "aws_sqs_queue.sqs_rp_world",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_acc"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_foreign",
+      "verdict": "open",
+      "why": "F45-ACC: sqs:* on * \u2192 account scope to every queue (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_acc",
+        "to": "aws_sqs_queue.sqs_rp_foreign",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_acc"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_same",
+      "verdict": "open",
+      "why": "F45-ACC: sqs:* on * \u2192 account scope to every queue (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_acc",
+        "to": "aws_sqs_queue.sqs_rp_same",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_acc"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_org",
+      "verdict": "open",
+      "why": "F45-ACC: sqs:* on * \u2192 account scope to every queue (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_acc",
+        "to": "aws_sqs_queue.sqs_rp_org",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_acc"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_deny_cond",
+      "verdict": "open",
+      "why": "F45-ACC: sqs:* on * \u2192 account scope to every queue (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_acc",
+        "to": "aws_sqs_queue.sqs_rp_deny_cond",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_acc"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_doc",
+      "verdict": "open",
+      "why": "F45-ACC: sqs:* on * \u2192 account scope to every queue (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_acc",
+        "to": "aws_sqs_queue.sqs_rp_doc",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_acc"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_none",
+      "verdict": "open",
+      "why": "F45-ACC: sqs:* on * \u2192 account scope to every queue (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_acc",
+        "to": "aws_sqs_queue.sqs_rp_none",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_acc"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sqs_queue.sqs_rp_none",
+      "verdict": "mitigated",
+      "why": "F45-RES: scoped SendMessage/Publish via HCL-resolved ARNs (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_res",
+        "to": "aws_sqs_queue.sqs_rp_none",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_res"
+      }
+    },
+    {
+      "rule": "FR-045",
+      "address": "aws_sns_topic.sns_rp_default",
+      "verdict": "mitigated",
+      "why": "F45-RES: scoped SendMessage/Publish via HCL-resolved ARNs (Action v0.38.0+)",
+      "flow": {
+        "from": "aws_lambda_function.f45_res",
+        "to": "aws_sns_topic.sns_rp_default",
+        "data_class": "unknown",
+        "cause": "aws_iam_role_policy.f45_res"
+      }
+    },
+    {
       "rule": "FR-032",
       "address": "aws_s3_bucket.b71_one",
       "verdict": "mitigated",
-      "why": "F: b71_reader Lambda inline GetObject on b71_one only → authz_scope=resource (Action v0.35.0+)",
+      "why": "F: b71_reader Lambda inline GetObject on b71_one only \u2192 authz_scope=resource (Action v0.35.0+)",
       "flow": {
         "from": "aws_lambda_function.b71_reader",
         "to": "aws_s3_bucket.b71_one",
@@ -510,7 +686,7 @@
       "rule": "FR-032",
       "address": "aws_s3_bucket.b71_a",
       "verdict": "mitigated",
-      "why": "G: b71_dual inline policy names b71_a and b71_b ARNs → resource-scoped flows to each bucket (Action v0.35.0+)",
+      "why": "G: b71_dual inline policy names b71_a and b71_b ARNs \u2192 resource-scoped flows to each bucket (Action v0.35.0+)",
       "flow": {
         "from": "aws_lambda_function.b71_dual",
         "to": "aws_s3_bucket.b71_a",
@@ -534,7 +710,7 @@
       "rule": "FR-032",
       "address": "aws_s3_bucket.b72_jsonencode",
       "verdict": "mitigated",
-      "why": "I: b72_jsonencode role policy read from HCL jsonencode when plan policy unknown → resource-scoped flow (Action v0.35.0+)",
+      "why": "I: b72_jsonencode role policy read from HCL jsonencode when plan policy unknown \u2192 resource-scoped flow (Action v0.35.0+)",
       "flow": {
         "from": "aws_lambda_function.b72_jsonencode",
         "to": "aws_s3_bucket.b72_jsonencode",
@@ -546,7 +722,7 @@
       "rule": "FR-032",
       "address": "aws_s3_bucket.b71_h",
       "verdict": "open",
-      "why": "H: AmazonS3ReadOnlyAccess attachment ARN not in-plan → authz_scope omitted; SARIF cause is the attachment (Action v0.35.0+)",
+      "why": "H: AmazonS3ReadOnlyAccess attachment ARN not in-plan \u2192 authz_scope omitted; SARIF cause is the attachment (Action v0.35.0+)",
       "flow": {
         "from": "aws_lambda_function.b71_h",
         "to": "aws_s3_bucket.b71_h",
@@ -558,49 +734,49 @@
       "rule": "FR-041",
       "address": "aws_elasticache_cluster.cache_memcached",
       "verdict": "mitigated",
-      "why": "C: Memcached cluster SG restricts ingress to app peer — FR-041 network restriction (Action v0.35.0+)"
+      "why": "C: Memcached cluster SG restricts ingress to app peer \u2014 FR-041 network restriction (Action v0.35.0+)"
     },
     {
       "rule": "FR-041",
       "address": "aws_elasticache_replication_group.cache_redis_open",
       "verdict": "open",
-      "why": "B: cache_redis_open allows 0.0.0.0/0 on 6379 — FR-041 network restriction open (Action v0.35.0+)"
+      "why": "B: cache_redis_open allows 0.0.0.0/0 on 6379 \u2014 FR-041 network restriction open (Action v0.35.0+)"
     },
     {
       "rule": "FR-041",
       "address": "aws_elasticache_replication_group.cache_redis_secure",
       "verdict": "mitigated",
-      "why": "A: cache_redis_secure restricted to app SG — FR-041 network restriction mitigated (Action v0.35.0+)"
+      "why": "A: cache_redis_secure restricted to app SG \u2014 FR-041 network restriction mitigated (Action v0.35.0+)"
     },
     {
       "rule": "FR-042",
       "address": "aws_elasticache_cluster.cache_memcached",
       "verdict": "mitigated",
-      "why": "C: Memcached transit_encryption_enabled=true — FR-042 transit encryption (Action v0.35.0+)"
+      "why": "C: Memcached transit_encryption_enabled=true \u2014 FR-042 transit encryption (Action v0.35.0+)"
     },
     {
       "rule": "FR-042",
       "address": "aws_elasticache_replication_group.cache_redis_open",
       "verdict": "open",
-      "why": "B: cache_redis_open transit encryption off — FR-042 transit encryption open (Action v0.35.0+)"
+      "why": "B: cache_redis_open transit encryption off \u2014 FR-042 transit encryption open (Action v0.35.0+)"
     },
     {
       "rule": "FR-042",
       "address": "aws_elasticache_replication_group.cache_redis_secure",
       "verdict": "mitigated",
-      "why": "A: cache_redis_secure transit encryption on — FR-042 transit encryption mitigated (Action v0.35.0+)"
+      "why": "A: cache_redis_secure transit encryption on \u2014 FR-042 transit encryption mitigated (Action v0.35.0+)"
     },
     {
       "rule": "FR-043",
       "address": "aws_elasticache_replication_group.cache_redis_open",
       "verdict": "open",
-      "why": "B: cache_redis_open encryption at rest off (auth_token unset) — FR-043 Redis-only (Action v0.35.0+)"
+      "why": "B: cache_redis_open encryption at rest off (auth_token unset) \u2014 FR-043 Redis-only (Action v0.35.0+)"
     },
     {
       "rule": "FR-043",
       "address": "aws_elasticache_replication_group.cache_redis_secure",
       "verdict": "mitigated",
-      "why": "A: cache_redis_secure encryption at rest on — FR-043 Redis-only mitigated (Action v0.35.0+)"
+      "why": "A: cache_redis_secure encryption at rest on \u2014 FR-043 Redis-only mitigated (Action v0.35.0+)"
     },
     {
       "rule": "FR-046",
@@ -734,7 +910,7 @@
     },
     {
       "id": "app-to-uploads-bucket",
-      "for": "B-44: app workload → uploads bucket only",
+      "for": "B-44: app workload \u2192 uploads bucket only",
       "require": {
         "flow": {
           "authz_scope": "resource",
@@ -747,7 +923,7 @@
     },
     {
       "id": "worker-to-worker-bucket",
-      "for": "B-44: worker workload → worker bucket only",
+      "for": "B-44: worker workload \u2192 worker bucket only",
       "require": {
         "flow": {
           "authz_scope": "resource",
@@ -760,7 +936,7 @@
     },
     {
       "id": "no-worker-to-uploads",
-      "for": "B-44: no cross-flow worker → uploads",
+      "for": "B-44: no cross-flow worker \u2192 uploads",
       "require": {
         "flow": {
           "absent": true,
@@ -773,7 +949,7 @@
     },
     {
       "id": "no-app-to-worker-bucket",
-      "for": "B-44: no cross-flow app → worker bucket",
+      "for": "B-44: no cross-flow app \u2192 worker bucket",
       "require": {
         "flow": {
           "absent": true,
@@ -800,7 +976,7 @@
     },
     {
       "id": "root-secret-delivery",
-      "for": "B-43: root task def secrets valueFrom → root secret",
+      "for": "B-43: root task def secrets valueFrom \u2192 root secret",
       "require": {
         "flow": {
           "secret_delivery": "env",
@@ -814,7 +990,7 @@
     },
     {
       "id": "vm-s3-resource-scoped",
-      "for": "B-14: app_vm instance profile → uploads only (Action v0.33.0+)",
+      "for": "B-14: app_vm instance profile \u2192 uploads only (Action v0.33.0+)",
       "require": {
         "flow": {
           "authz_scope": "resource",
@@ -827,7 +1003,7 @@
     },
     {
       "id": "asg-db-scope-account",
-      "for": "B-14: db_worker ASG → RDS with account-wide rds-db:connect (Action v0.33.0+)",
+      "for": "B-14: db_worker ASG \u2192 RDS with account-wide rds-db:connect (Action v0.33.0+)",
       "require": {
         "flow": {
           "authz_scope": "account",
@@ -841,7 +1017,7 @@
     },
     {
       "id": "sessions-scoped",
-      "for": "B-14 R2: app ECS task role → sessions table only (Action v0.34.0+)",
+      "for": "B-14 R2: app ECS task role \u2192 sessions table only (Action v0.34.0+)",
       "require": {
         "flow": {
           "authz_scope": "resource",
@@ -855,7 +1031,7 @@
     },
     {
       "id": "audit-account",
-      "for": "B-14 R2: audit_writer Lambda → audit with account-wide DynamoDB grant (Action v0.34.0+)",
+      "for": "B-14 R2: audit_writer Lambda \u2192 audit with account-wide DynamoDB grant (Action v0.34.0+)",
       "require": {
         "flow": {
           "authz_scope": "account",
@@ -869,7 +1045,7 @@
     },
     {
       "id": "no-audit-writer-to-sessions",
-      "for": "B-14 R2: audit_writer role does not name sessions → no DynamoDB flow to sessions",
+      "for": "B-14 R2: audit_writer role does not name sessions \u2192 no DynamoDB flow to sessions",
       "require": {
         "flow": {
           "absent": true,
