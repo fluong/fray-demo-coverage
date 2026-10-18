@@ -1884,3 +1884,248 @@ resource "aws_secretsmanager_secret_policy" "sm_rp_same" {
 resource "aws_secretsmanager_secret" "sm_rp_none" {
   name = "${local.name}-sm-rp-none-fake"
 }
+
+# ---------------------------------------------------------------------------
+# (n) SQS / SNS access policies + queue IAM (Action v0.38.0+ for FR-044 /
+# FR-045). Queues/topics are not mapped at v0.37.0 (no FR-044/045 rows on
+# the current pin). No data.aws_caller_identity or allowed_account_ids.
+# Q-*: aws_sqs_queue + aws_sqs_queue_policy (queue_url, policy).
+# T-*: aws_sns_topic; T-DEFAULT has no aws_sns_topic_policy (AWS owner-only).
+# F45-*: new inline policies on existing b71_reader / b71_dual Lambdas only.
+# ---------------------------------------------------------------------------
+
+resource "aws_sqs_queue" "sqs_rp_world" {
+  name = "${local.name}-sqs-rp-world-fake"
+}
+
+resource "aws_sqs_queue_policy" "sqs_rp_world" {
+  queue_url = aws_sqs_queue.sqs_rp_world.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "WorldSend"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.sqs_rp_world.arn
+    }]
+  })
+}
+
+resource "aws_sqs_queue" "sqs_rp_foreign" {
+  name = "${local.name}-sqs-rp-foreign-fake"
+}
+
+resource "aws_sqs_queue_policy" "sqs_rp_foreign" {
+  queue_url = aws_sqs_queue.sqs_rp_foreign.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "ForeignRoot"
+      Effect = "Allow"
+      Principal = {
+        AWS = "arn:aws:iam::444455556666:root"
+      }
+      Action   = "sqs:SendMessage"
+      Resource = aws_sqs_queue.sqs_rp_foreign.arn
+    }]
+  })
+}
+
+resource "aws_sqs_queue" "sqs_rp_same" {
+  name = "${local.name}-sqs-rp-same-fake"
+}
+
+resource "aws_sqs_queue_policy" "sqs_rp_same" {
+  queue_url = aws_sqs_queue.sqs_rp_same.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "SamePlanRole"
+      Effect = "Allow"
+      Principal = {
+        AWS = aws_iam_role.b71_reader.arn
+      }
+      Action   = "sqs:SendMessage"
+      Resource = aws_sqs_queue.sqs_rp_same.arn
+    }]
+  })
+}
+
+resource "aws_sqs_queue" "sqs_rp_org" {
+  name = "${local.name}-sqs-rp-org-fake"
+}
+
+resource "aws_sqs_queue_policy" "sqs_rp_org" {
+  queue_url = aws_sqs_queue.sqs_rp_org.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "OrgRestrictedWorld"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.sqs_rp_org.arn
+      Condition = {
+        StringEquals = {
+          "aws:PrincipalOrgID" = "o-exampleorgid"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_sqs_queue" "sqs_rp_deny_cond" {
+  name = "${local.name}-sqs-rp-deny-cond-fake"
+}
+
+resource "aws_sqs_queue_policy" "sqs_rp_deny_cond" {
+  queue_url = aws_sqs_queue.sqs_rp_deny_cond.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowOrg"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "sqs:SendMessage"
+        Resource  = aws_sqs_queue.sqs_rp_deny_cond.arn
+        Condition = {
+          StringEquals = {
+            "aws:PrincipalOrgID" = "o-exampleorgid"
+          }
+        }
+      },
+      {
+        Sid       = "DenyOtherOrg"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "sqs:*"
+        Resource  = aws_sqs_queue.sqs_rp_deny_cond.arn
+        Condition = {
+          StringNotEquals = {
+            "aws:PrincipalOrgID" = "o-exampleorgid"
+          }
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_sqs_queue" "sqs_rp_doc" {
+  name = "${local.name}-sqs-rp-doc-fake"
+}
+
+data "aws_iam_policy_document" "sqs_rp_doc" {
+  statement {
+    sid    = "SourceVpceRestricted"
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage",
+    ]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    resources = [
+      aws_sqs_queue.sqs_rp_doc.arn,
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceVpce"
+      values   = ["vpce-0123456789abcdef0"]
+    }
+  }
+}
+
+resource "aws_sqs_queue_policy" "sqs_rp_doc" {
+  queue_url = aws_sqs_queue.sqs_rp_doc.id
+  policy    = data.aws_iam_policy_document.sqs_rp_doc.json
+}
+
+resource "aws_sqs_queue" "sqs_rp_none" {
+  name = "${local.name}-sqs-rp-none-fake"
+}
+
+resource "aws_sns_topic" "sns_rp_world" {
+  name = "${local.name}-sns-rp-world-fake"
+}
+
+resource "aws_sns_topic_policy" "sns_rp_world" {
+  arn = aws_sns_topic.sns_rp_world.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "WorldPublish"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "sns:Publish"
+      Resource  = aws_sns_topic.sns_rp_world.arn
+    }]
+  })
+}
+
+resource "aws_sns_topic" "sns_rp_default" {
+  name = "${local.name}-sns-rp-default-fake"
+}
+
+resource "aws_sns_topic" "sns_rp_owner" {
+  name = "${local.name}-sns-rp-owner-fake"
+}
+
+resource "aws_sns_topic_policy" "sns_rp_owner" {
+  arn = aws_sns_topic.sns_rp_owner.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "SourceOwnerStar"
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "sns:Publish"
+      Resource  = aws_sns_topic.sns_rp_owner.arn
+      Condition = {
+        StringEquals = {
+          "AWS:SourceOwner" = "111122223333"
+        }
+      }
+    }]
+  })
+}
+
+# F45-RES: scoped SQS + SNS on b71_reader (existing S3 policy unchanged).
+resource "aws_iam_role_policy" "b71_reader_f45_queues" {
+  name = "b71-reader-f45-queues"
+  role = aws_iam_role.b71_reader.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "SendOneQueue"
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = [aws_sqs_queue.sqs_rp_none.arn]
+      },
+      {
+        Sid      = "PublishDefaultTopic"
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
+        Resource = [aws_sns_topic.sns_rp_default.arn]
+      },
+    ]
+  })
+}
+
+# F45-ACC: account-wide SQS on b71_dual (existing dual-bucket S3 policy unchanged).
+resource "aws_iam_role_policy" "b71_dual_sqs_account" {
+  name = "b71-dual-sqs-account"
+  role = aws_iam_role.b71_dual.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "AllSQS"
+      Effect   = "Allow"
+      Action   = ["sqs:*"]
+      Resource = ["*"]
+    }]
+  })
+}
