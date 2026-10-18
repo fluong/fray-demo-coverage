@@ -319,6 +319,54 @@
       "why": "B-72 local Resource fixture (J): no SSE configuration at v0.34.1"
     },
     {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.s3_rp_world",
+      "verdict": "open",
+      "why": "S-K bucket policy fixture: AES256 SSE only → customer_managed_key=false (Action v0.36.0; FR-049 ships v0.37.0+)"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.s3_rp_foreign",
+      "verdict": "open",
+      "why": "S-L foreign-principal bucket policy fixture: provider-managed SSE key only (Action v0.36.0)"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.s3_rp_same",
+      "verdict": "open",
+      "why": "S-L2 same-account role principal fixture: no customer-managed KMS key (Action v0.36.0)"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.s3_rp_org",
+      "verdict": "open",
+      "why": "S-M org-condition bucket policy fixture: AES256 default encryption (Action v0.36.0)"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.s3_rp_deny_cond",
+      "verdict": "open",
+      "why": "S-N Allow+Deny bucket policy fixture: no CMK (Action v0.36.0)"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.s3_rp_doc",
+      "verdict": "open",
+      "why": "S-O data.aws_iam_policy_document bucket policy fixture: no CMK (Action v0.36.0)"
+    },
+    {
+      "rule": "FR-036",
+      "address": "aws_s3_bucket.s3_rp_bpa",
+      "verdict": "open",
+      "why": "S-BPA world policy + Block Public Access: still no customer-managed key (Action v0.36.0)"
+    },
+    {
+      "rule": "FR-025",
+      "address": "aws_s3_bucket.s3_rp_bpa",
+      "verdict": "mitigated",
+      "why": "S-BPA: aws_s3_bucket_public_access_block with restrict_public_buckets=true (Action v0.36.0; FR-049 BPA axis ships v0.37.0+)"
+    },
+    {
       "rule": "FR-032",
       "address": "aws_s3_bucket.b71_one",
       "verdict": "mitigated",
@@ -481,6 +529,30 @@
       "address": "aws_secretsmanager_secret.app",
       "verdict": "open",
       "why": "No rotation on coverage secret; accepted fixture noise (B-43)"
+    },
+    {
+      "rule": "FR-009",
+      "address": "aws_secretsmanager_secret.sm_rp_world",
+      "verdict": "open",
+      "why": "No rotation on SM-K resource-policy fixture secret; accepted fixture noise"
+    },
+    {
+      "rule": "FR-009",
+      "address": "aws_secretsmanager_secret.sm_rp_block",
+      "verdict": "open",
+      "why": "No rotation on SM-BPP block_public_policy fixture; accepted fixture noise"
+    },
+    {
+      "rule": "FR-009",
+      "address": "aws_secretsmanager_secret.sm_rp_same",
+      "verdict": "open",
+      "why": "No rotation on SM-L2 same-account policy fixture; accepted fixture noise"
+    },
+    {
+      "rule": "FR-009",
+      "address": "aws_secretsmanager_secret.sm_rp_none",
+      "verdict": "open",
+      "why": "No rotation on SM-NONE secret; accepted fixture noise"
     },
     {
       "rule": "FR-005",
