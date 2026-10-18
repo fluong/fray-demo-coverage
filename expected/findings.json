@@ -225,6 +225,64 @@
       }
     },
     {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.ddb_rp_world",
+      "verdict": "open",
+      "why": "Table resource policy allows any principal without a restricting condition (Action v0.36.0+; severity high)",
+      "flow": {
+        "to": "aws_dynamodb_table.ddb_rp_world",
+        "cause": "aws_dynamodb_resource_policy.ddb_rp_world"
+      }
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.sessions",
+      "verdict": "mitigated",
+      "why": "No resource policy on table; both resource-policy attributes false (Action v0.36.0+)"
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.audit",
+      "verdict": "mitigated",
+      "why": "No resource policy on table; both resource-policy attributes false (Action v0.36.0+)"
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.ddb_rp_none",
+      "verdict": "mitigated",
+      "why": "No resource policy on table; both attributes false (Action v0.36.0+)"
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.ddb_rp_same",
+      "verdict": "mitigated",
+      "why": "Policy principal is an in-plan IAM role in this account (Action v0.36.0+)"
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.ddb_rp_org",
+      "verdict": "mitigated",
+      "why": "Principal * restricted by aws:PrincipalOrgID (Action v0.36.0+)"
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.ddb_rp_doc",
+      "verdict": "mitigated",
+      "why": "Principal * restricted by aws:SourceVpce via data.aws_iam_policy_document (Action v0.36.0+)"
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.ddb_rp_foreign",
+      "verdict": "unverified",
+      "why": "Foreign-account principal literal without a known owning account at plan time (Action v0.36.0+)"
+    },
+    {
+      "rule": "FR-048",
+      "address": "aws_dynamodb_table.ddb_rp_deny_cond",
+      "verdict": "unverified",
+      "why": "Deny with conditions makes effective access unclear (Action v0.36.0+)"
+    },
+    {
       "rule": "FR-036",
       "address": "aws_s3_bucket.b71_one",
       "verdict": "open",
