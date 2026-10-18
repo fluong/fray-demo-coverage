@@ -155,8 +155,8 @@
     {
       "rule": "FR-001",
       "address": "aws_api_gateway_rest_api.f06_rest_public",
-      "verdict": "unverified",
-      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+      "verdict": "open",
+      "why": "OpenAPI body: no security (Action v0.41.0+)"
     },
     {
       "rule": "FR-026",
@@ -173,8 +173,8 @@
     {
       "rule": "FR-001",
       "address": "aws_api_gateway_rest_api.f06_rest_iam",
-      "verdict": "unverified",
-      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+      "verdict": "mitigated",
+      "why": "OpenAPI body: awsSigv4 in body (Action v0.41.0+)"
     },
     {
       "rule": "FR-026",
@@ -191,8 +191,8 @@
     {
       "rule": "FR-001",
       "address": "aws_api_gateway_rest_api.f06_rest_apikey",
-      "verdict": "unverified",
-      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+      "verdict": "open",
+      "why": "OpenAPI body: API key is not authentication (Action v0.41.0+)"
     },
     {
       "rule": "FR-026",
@@ -210,7 +210,7 @@
       "rule": "FR-001",
       "address": "aws_api_gateway_rest_api.f06_rest_custom",
       "verdict": "unverified",
-      "why": "public_client \u2192 REST API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+      "why": "OpenAPI body: custom Lambda authorizer (Action v0.41.0+)"
     },
     {
       "rule": "FR-026",
@@ -227,8 +227,8 @@
     {
       "rule": "FR-001",
       "address": "aws_apigatewayv2_api.f06_http_public",
-      "verdict": "unverified",
-      "why": "public_client \u2192 HTTP API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+      "verdict": "open",
+      "why": "OpenAPI body: no security (Action v0.41.0+)"
     },
     {
       "rule": "FR-026",
@@ -239,8 +239,8 @@
     {
       "rule": "FR-001",
       "address": "aws_apigatewayv2_api.f06_http_jwt",
-      "verdict": "unverified",
-      "why": "public_client \u2192 HTTP API edge; OpenAPI body set so authz_scope omitted (Action v0.40.0+)"
+      "verdict": "mitigated",
+      "why": "OpenAPI body: JWT authorizer in body (Action v0.41.0+)"
     },
     {
       "rule": "FR-026",
