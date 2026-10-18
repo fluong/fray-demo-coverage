@@ -2163,6 +2163,7 @@ resource "aws_lambda_function" "f45_acc" {
 # the v0.40.0 pin, because on v0.39.0 a standalone-only policy creates a
 # public entry flow. Plan pin v0.39.0: non-empty inline policy or PRIVATE
 # endpoint keeps REST APIs off the DFD (no new expected rows).
+# Inline policy Resource is "execute-api:/*" (avoid self-ref on execution_arn).
 # ---------------------------------------------------------------------------
 
 resource "aws_security_group" "f51_execute_api_vpce" {
@@ -2203,7 +2204,7 @@ resource "aws_api_gateway_rest_api" "f51_open" {
       Effect    = "Allow"
       Principal = "*"
       Action    = "execute-api:Invoke"
-      Resource  = "${aws_api_gateway_rest_api.f51_open.execution_arn}/*"
+      Resource  = "execute-api:/*"
     }]
   })
 }
@@ -2267,14 +2268,14 @@ resource "aws_api_gateway_rest_api" "f51_vpce" {
         Effect    = "Allow"
         Principal = "*"
         Action    = "execute-api:Invoke"
-        Resource  = "${aws_api_gateway_rest_api.f51_vpce.execution_arn}/*"
+        Resource  = "execute-api:/*"
       },
       {
         Sid       = "DenyOutsideVpce"
         Effect    = "Deny"
         Principal = "*"
         Action    = "execute-api:Invoke"
-        Resource  = "${aws_api_gateway_rest_api.f51_vpce.execution_arn}/*"
+        Resource  = "execute-api:/*"
         Condition = {
           StringNotEquals = {
             "aws:SourceVpce" = aws_vpc_endpoint.f51_execute_api.id
@@ -2346,14 +2347,14 @@ resource "aws_api_gateway_rest_api" "f51_ip" {
         Effect    = "Allow"
         Principal = "*"
         Action    = "execute-api:Invoke"
-        Resource  = "${aws_api_gateway_rest_api.f51_ip.execution_arn}/*"
+        Resource  = "execute-api:/*"
       },
       {
         Sid       = "DenyOutsideTestNet"
         Effect    = "Deny"
         Principal = "*"
         Action    = "execute-api:Invoke"
-        Resource  = "${aws_api_gateway_rest_api.f51_ip.execution_arn}/*"
+        Resource  = "execute-api:/*"
         Condition = {
           NotIpAddress = {
             "aws:SourceIp" = ["203.0.113.0/24"]
@@ -2426,14 +2427,14 @@ resource "aws_api_gateway_rest_api" "f51_private" {
         Effect    = "Allow"
         Principal = "*"
         Action    = "execute-api:Invoke"
-        Resource  = "${aws_api_gateway_rest_api.f51_private.execution_arn}/*"
+        Resource  = "execute-api:/*"
       },
       {
         Sid       = "DenyOutsideVpce"
         Effect    = "Deny"
         Principal = "*"
         Action    = "execute-api:Invoke"
-        Resource  = "${aws_api_gateway_rest_api.f51_private.execution_arn}/*"
+        Resource  = "execute-api:/*"
         Condition = {
           StringNotEquals = {
             "aws:SourceVpce" = aws_vpc_endpoint.f51_execute_api.id

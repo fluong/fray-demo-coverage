@@ -114,6 +114,7 @@ expected rows** until the workflow pin reaches v0.34.0 and
 Section **(o)** in `infra/main.tf`: four REST APIs (`f51_open`, `f51_vpce`,
 `f51_ip`, `f51_private`) with MOCK integrations and method authorization
 `AWS_IAM`, plus a shared execute-api interface VPC endpoint and security group.
+Inline policies use `Resource = "execute-api:/*"` (not the API execution ARN).
 
 | Resource | Policy shape |
 |----------|----------------|
