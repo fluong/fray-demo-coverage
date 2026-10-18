@@ -109,6 +109,25 @@ expected rows** until the workflow pin reaches v0.34.0 and
 `expected/findings.json` is updated (FR-039/FR-040 flow rows,
 `sessions-scoped` / `audit-account` `dfd_evidence`).
 
+### REST API Gateway fixtures (B-05 prep)
+
+Section **(o)** in `infra/main.tf`: four REST APIs (`f51_open`, `f51_vpce`,
+`f51_ip`, `f51_private`) with MOCK integrations and method authorization
+`AWS_IAM`, plus a shared execute-api interface VPC endpoint and security group.
+
+| Resource | Policy shape |
+|----------|----------------|
+| `aws_api_gateway_rest_api.f51_open` | Allow `*` invoke, no conditions |
+| `aws_api_gateway_rest_api.f51_vpce` | Allow `*` + Deny unless `aws:SourceVpce` |
+| `aws_api_gateway_rest_api.f51_ip` | Allow `*` + Deny `NotIpAddress` on `aws:SourceIp` |
+| `aws_api_gateway_rest_api.f51_private` | **PRIVATE** + same VPCE + Allow `*` + VPCE Deny |
+
+On **Action v0.39.0** REST resource policies are not classified and inline
+policy blocks internet-entry modeling; **no new expected rows**. **Rows appear
+with the v0.40.0 pin** (`scripts/client-release.sh --coverage-expected`). A
+standalone foreign-principal `aws_api_gateway_rest_api_policy` is deferred to
+that pin (v0.39.0 ignores standalone policy for internet-entry gating).
+
 ### Known gaps
 
 Until Action v0.33.0: no expected rows for VM/ASG IAM-derived S3 or RDS flows

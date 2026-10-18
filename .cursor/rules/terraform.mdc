@@ -18,7 +18,8 @@ Keep the stack as four flat files under `infra/`. No modules.
 
 - `terraform.tf` — Terraform version, providers (LocalStack STS when set)
 - `inputs.tf` — variables
-- `main.tf` — locals and resources, top to bottom
+- `main.tf` — locals and lettered fixture sections `(a)` … `(o)`; see README for
+  pin-gated expectations
 - `outputs.tf` — outputs (empty for plan-only fixtures)
 
 Do not introduce a remote backend, workspaces, or tfvars with real credentials.
