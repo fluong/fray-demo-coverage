@@ -1843,12 +1843,12 @@ resource "aws_secretsmanager_secret_policy" "sm_rp_world" {
 }
 
 resource "aws_secretsmanager_secret" "sm_rp_block" {
-  name                  = "${local.name}-sm-rp-block-fake"
-  block_public_policy   = true
+  name = "${local.name}-sm-rp-block-fake"
 }
 
 resource "aws_secretsmanager_secret_policy" "sm_rp_block" {
-  secret_arn = aws_secretsmanager_secret.sm_rp_block.arn
+  secret_arn            = aws_secretsmanager_secret.sm_rp_block.arn
+  block_public_policy   = true
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
