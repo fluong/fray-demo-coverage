@@ -2157,13 +2157,9 @@ resource "aws_lambda_function" "f45_acc" {
 }
 
 # ---------------------------------------------------------------------------
-# (o) REST API Gateway resource policies + execute-api VPC endpoint (Action
-# v0.40.0+ for invoke-policy rows). F51-*: four REST APIs (MOCK, AWS_IAM).
-# Standalone aws_api_gateway_rest_api_policy (foreign principal) is added with
-# the v0.40.0 pin, because on v0.39.0 a standalone-only policy creates a
-# public entry flow. Plan pin v0.39.0: non-empty inline policy or PRIVATE
-# endpoint keeps REST APIs off the DFD (no new expected rows).
-# Inline policy Resource is "execute-api:/*" (avoid self-ref on execution_arn).
+# (o) REST API Gateway resource policies + execute-api VPC endpoint. F51-*:
+# five REST APIs (MOCK, AWS_IAM) plus f51_cross standalone policy. Inline
+# policy Resource is "execute-api:/*" (avoid self-ref on execution_arn).
 # ---------------------------------------------------------------------------
 
 resource "aws_security_group" "f51_execute_api_vpce" {
@@ -2485,5 +2481,74 @@ resource "aws_api_gateway_deployment" "f51_private" {
 resource "aws_api_gateway_stage" "f51_private" {
   deployment_id = aws_api_gateway_deployment.f51_private.id
   rest_api_id   = aws_api_gateway_rest_api.f51_private.id
+  stage_name    = "prod"
+}
+
+# f51_cross: no inline policy; foreign root via standalone policy only.
+# Action v0.40.0+: invoke policy unverified (owner account unknown); no public client edge.
+
+resource "aws_api_gateway_rest_api" "f51_cross" {
+  name = "${local.name}-f51-cross-fake"
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_rest_api_policy" "f51_cross" {
+  rest_api_id = aws_api_gateway_rest_api.f51_cross.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "ForeignRootInvoke"
+      Effect    = "Allow"
+      Principal = {
+        AWS = "arn:aws:iam::444455556666:root"
+      }
+      Action   = "execute-api:Invoke"
+      Resource = "execute-api:/*"
+    }]
+  })
+}
+
+resource "aws_api_gateway_resource" "f51_cross" {
+  rest_api_id = aws_api_gateway_rest_api.f51_cross.id
+  parent_id   = aws_api_gateway_rest_api.f51_cross.root_resource_id
+  path_part   = "health"
+}
+
+resource "aws_api_gateway_method" "f51_cross" {
+  rest_api_id   = aws_api_gateway_rest_api.f51_cross.id
+  resource_id   = aws_api_gateway_resource.f51_cross.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "f51_cross" {
+  rest_api_id = aws_api_gateway_rest_api.f51_cross.id
+  resource_id = aws_api_gateway_resource.f51_cross.id
+  http_method = aws_api_gateway_method.f51_cross.http_method
+  type        = "MOCK"
+  request_templates = {
+    "application/json" = jsonencode({ statusCode = 200 })
+  }
+}
+
+resource "aws_api_gateway_deployment" "f51_cross" {
+  rest_api_id = aws_api_gateway_rest_api.f51_cross.id
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.f51_cross.id,
+      aws_api_gateway_method.f51_cross.id,
+      aws_api_gateway_integration.f51_cross.id,
+    ]))
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "f51_cross" {
+  deployment_id = aws_api_gateway_deployment.f51_cross.id
+  rest_api_id   = aws_api_gateway_rest_api.f51_cross.id
   stage_name    = "prod"
 }

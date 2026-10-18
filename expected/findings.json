@@ -147,6 +147,12 @@
       "why": "PRIVATE endpoint + VPCE Deny; resource policy not world/cross open"
     },
     {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.f51_cross",
+      "verdict": "unverified",
+      "why": "Foreign root principal on standalone policy; owning account not known at plan time (Action v0.40.0+)"
+    },
+    {
       "rule": "FR-029",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
