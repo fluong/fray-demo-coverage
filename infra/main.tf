@@ -3071,3 +3071,152 @@ resource "aws_apigatewayv2_stage" "q07_http_proxy" {
   name        = "$default"
   auto_deploy = true
 }
+
+# ---------------------------------------------------------------------------
+# (r) Lambda RDS IAM auth and env secret references (B-08 prep). R08-*:
+# Reuses aws_db_instance.main (IAM DB auth, same settings as section e2) and
+# aws_secretsmanager_secret.app (no new secret resources → no extra FR-009 noise).
+# Lambdas mirror section (j) b71_reader (nodejs20.x, placeholder zip, no URL/VPC).
+# Later (Action after B-08 client): Lambda→DB IAM flows (FR-028 scoped vs "*");
+# Lambda env secret ARN vs material vs plain literals.
+# ---------------------------------------------------------------------------
+
+# r08_rds: target database is aws_db_instance.main (iam_database_authentication_enabled).
+
+data "aws_iam_policy_document" "r08_iam_scoped_rds" {
+  statement {
+    sid     = "R08RDSIAMScoped"
+    actions = ["rds-db:connect"]
+    resources = [
+      "arn:aws:rds-db:us-east-1:123456789012:dbuser:${aws_db_instance.main.resource_id}/r08lambda",
+    ]
+  }
+}
+
+resource "aws_iam_role" "r08_iam_scoped" {
+  name               = "${local.name}-r08-iam-scoped"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "r08_iam_scoped_rds" {
+  name   = "r08-iam-scoped-rds"
+  role   = aws_iam_role.r08_iam_scoped.id
+  policy = data.aws_iam_policy_document.r08_iam_scoped_rds.json
+}
+
+resource "aws_lambda_function" "r08_iam_scoped" {
+  function_name = "${local.name}-r08-iam-scoped"
+  role          = aws_iam_role.r08_iam_scoped.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+data "aws_iam_policy_document" "r08_iam_wild_rds" {
+  statement {
+    sid       = "R08RDSIAMWild"
+    actions   = ["rds-db:connect"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role" "r08_iam_wild" {
+  name               = "${local.name}-r08-iam-wild"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_iam_role_policy" "r08_iam_wild_rds" {
+  name   = "r08-iam-wild-rds"
+  role   = aws_iam_role.r08_iam_wild.id
+  policy = data.aws_iam_policy_document.r08_iam_wild_rds.json
+}
+
+resource "aws_lambda_function" "r08_iam_wild" {
+  function_name = "${local.name}-r08-iam-wild"
+  role          = aws_iam_role.r08_iam_wild.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+}
+
+resource "aws_iam_role" "r08_env_ref" {
+  name               = "${local.name}-r08-env-ref"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_lambda_function" "r08_env_ref" {
+  function_name = "${local.name}-r08-env-ref"
+  role          = aws_iam_role.r08_env_ref.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+
+  environment {
+    variables = {
+      APP_CONFIG = aws_secretsmanager_secret.app.arn
+    }
+  }
+}
+
+resource "aws_iam_role" "r08_env_dup" {
+  name               = "${local.name}-r08-env-dup"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_lambda_function" "r08_env_dup" {
+  function_name = "${local.name}-r08-env-dup"
+  role          = aws_iam_role.r08_env_dup.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+
+  environment {
+    variables = {
+      SECRET_A = aws_secretsmanager_secret.app.arn
+      SECRET_B = aws_secretsmanager_secret.app.arn
+    }
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "r08_material" {
+  secret_id     = aws_secretsmanager_secret.app.id
+  secret_string = "coverage-r08-material-placeholder"
+}
+
+resource "aws_iam_role" "r08_env_material" {
+  name               = "${local.name}-r08-env-material"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_lambda_function" "r08_env_material" {
+  function_name = "${local.name}-r08-env-material"
+  role          = aws_iam_role.r08_env_material.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+
+  environment {
+    variables = {
+      APP_SECRET = aws_secretsmanager_secret_version.r08_material.secret_string
+    }
+  }
+}
+
+resource "aws_iam_role" "r08_env_plain" {
+  name               = "${local.name}-r08-env-plain"
+  assume_role_policy = local.assume_lambda
+}
+
+resource "aws_lambda_function" "r08_env_plain" {
+  function_name = "${local.name}-r08-env-plain"
+  role          = aws_iam_role.r08_env_plain.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  filename      = "${path.module}/lambda_placeholder.zip"
+
+  environment {
+    variables = {
+      CONFIG = "example-value"
+    }
+  }
+}

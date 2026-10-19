@@ -158,6 +158,24 @@ integration flow (in addition to edge FR-026 / FR-051 / FR-001 rows).
 | `aws_api_gateway_rest_api.q07_rest_unknown` | `${aws_apigatewayv2_api.http.api_endpoint}/items` (unknown at plan) | Same edge rows; integration FR-026 **unverified** |
 | `aws_apigatewayv2_api.q07_http_proxy` | `https://api.example.com/v2` | FR-001 **mitigated**; FR-026 edge **mitigated**; integration FR-026 **mitigated** (TLS) |
 
+### Lambda RDS IAM and env secret fixtures (B-08 prep)
+
+Section **(r)** in `infra/main.tf`: six Lambdas (same packaging as section **(j)**
+`b71_reader`) plus one secret version on the existing app secret. Database target
+is **`aws_db_instance.main`** (IAM DB auth from section e2). **v0.42.0** does not
+draw Lambda→database IAM edges or Lambda env secret flows yet; **expected rows
+unchanged** until the Action pin passes B-08 client.
+
+| Fixture | Resources | Exercises (after B-08 client) |
+|---------|-----------|-------------------------------|
+| r08_rds | `aws_db_instance.main` (reused) | Shared IAM-auth Postgres instance for scoped/wild grants |
+| r08_iam_scoped | `aws_lambda_function.r08_iam_scoped` | Task role `rds-db:connect` on this instance’s dbuser ARN (plan-resolved `resource_id`) |
+| r08_iam_wild | `aws_lambda_function.r08_iam_wild` | Same grant on `Resource = "*"` (account-wide IAM auth) |
+| r08_env_ref | `aws_lambda_function.r08_env_ref` | Env var = Secrets Manager secret **ARN** (reference, not injected value) |
+| r08_env_dup | `aws_lambda_function.r08_env_dup` | Two env vars → same secret ARN (deduped reference flow) |
+| r08_env_material | `aws_lambda_function.r08_env_material`, `aws_secretsmanager_secret_version.r08_material` | Env var = **secret version value** (material delivery via environment) |
+| r08_env_plain | `aws_lambda_function.r08_env_plain` | Obvious non-secret literal (`example-value`) → no secret reference flow |
+
 ### Known gaps
 
 Until Action v0.33.0: no expected rows for VM/ASG IAM-derived S3 or RDS flows
