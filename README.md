@@ -11,6 +11,10 @@ LocalStack STS (same shape as `fray-demo-aws`), runs Fray Action, then asserts
 `expected/findings.json` against the Action outputs under
 `${runner.temp}/fray-out`.
 
+A release that adds a **new open high** finding fails the Action **gate once**
+on the default branch; **re-run the workflow** (same commit) and the gate passes
+once that scan is the baseline.
+
 A second job scans the same stack under `stack: alt` to check that stacks are
 kept apart (separate baseline, comment marker and Code Scanning category).
 
@@ -66,7 +70,7 @@ The app task def references a root secret via
 `valueFrom = aws_secretsmanager_secret.app.arn` (same-plan create →
 `container_definitions` unknown; Fray reads it from the configuration).
 
-Pinned Fray Action: **v0.32.0** (see `.github/workflows/fray.yml`).
+Pinned Fray Action: **v0.42.0** (see `.github/workflows/fray.yml`).
 
 ### B-14 instance-profile workloads (infra now)
 
@@ -131,32 +135,28 @@ Section **(p)** in `infra/main.tf`: six API Gateway APIs defined only by an
 OpenAPI **3.0.1** document in `body` (`jsonencode`); no separate method or
 route resources; no resource policy; MOCK integrations live in the spec.
 
-| Resource | Auth in OpenAPI body | Action **v0.40.0** (current pin) | After next client pin (body auth) |
-|----------|----------------------|----------------------------------|-----------------------------------|
-| `aws_api_gateway_rest_api.f06_rest_public` | None (open GET /health) | FR-001 **unverified** (body not read for auth) | FR-001 **open** |
-| `aws_api_gateway_rest_api.f06_rest_iam` | Global IAM SigV4 scheme | FR-001 **unverified** | FR-001 **mitigated** |
-| `aws_api_gateway_rest_api.f06_rest_apikey` | API key required only | FR-001 **unverified** | FR-001 **open** (key is not caller identity) |
-| `aws_api_gateway_rest_api.f06_rest_custom` | Lambda TOKEN authorizer | FR-001 **unverified** | FR-001 **unverified** (custom authorizer) |
-| `aws_apigatewayv2_api.f06_http_public` | None | FR-001 **unverified** | FR-001 **open** |
-| `aws_apigatewayv2_api.f06_http_jwt` | JWT authorizer | FR-001 **unverified** | FR-001 **mitigated** |
-
-REST rows also carry **FR-051 mitigated** (no resource policy) and **FR-026
-mitigated** (TLS edge) on the current pin.
+| Resource | Auth in OpenAPI body | Current (**v0.41.0+** / **v0.42.0+**, asserted) |
+|----------|----------------------|--------------------------------------------------|
+| `aws_api_gateway_rest_api.f06_rest_public` | None (open GET /health) | FR-001 **open**; FR-026 **mitigated** (edge); FR-051 **mitigated** |
+| `aws_api_gateway_rest_api.f06_rest_iam` | Global IAM SigV4 scheme | FR-001 **mitigated**; FR-026 / FR-051 **mitigated** |
+| `aws_api_gateway_rest_api.f06_rest_apikey` | API key required only | FR-001 **open** (key is not caller identity); FR-026 / FR-051 **mitigated** |
+| `aws_api_gateway_rest_api.f06_rest_custom` | Lambda TOKEN authorizer | FR-001 **unverified** (custom authorizer); FR-026 / FR-051 **mitigated** |
+| `aws_apigatewayv2_api.f06_http_public` | None | FR-001 **open**; FR-026 **mitigated** (edge) |
+| `aws_apigatewayv2_api.f06_http_jwt` | JWT authorizer | FR-001 **mitigated**; FR-026 **mitigated** (edge) |
 
 ### API Gateway HTTP integration fixtures (B-07)
 
 Section **(q)** in `infra/main.tf`: four APIs with **HTTP_PROXY** backends to
 `example.com` hosts; every method or route uses **AWS_IAM**; no resource
-policies. On the current Action pin (**v0.41.0**), HTTP integrations emit no
-backend flow (edge rows only). After the B-07 client pin, expect an additional
-**FR-026** row on each API’s outbound integration flow.
+policies. **v0.42.0+** adds an **FR-026** row on each API’s outbound
+integration flow (in addition to edge FR-026 / FR-051 / FR-001 rows).
 
-| Resource | Integration URI shape | Action **v0.41.0** (current pin) | After B-07 client pin (integration flow FR-026) |
-|----------|----------------------|----------------------------------|--------------------------------------------------|
-| `aws_api_gateway_rest_api.q07_rest_https` | `https://api.example.com/items` | FR-001 **mitigated**, FR-026 **mitigated** (edge), FR-051 **mitigated** | **mitigated** (TLS) |
-| `aws_api_gateway_rest_api.q07_rest_http` | `http://legacy.example.com/items` | Same edge rows | **open** (high, plaintext) |
-| `aws_api_gateway_rest_api.q07_rest_unknown` | `${aws_apigatewayv2_api.http.api_endpoint}/items` (unknown at plan) | Same edge rows | **unverified** |
-| `aws_apigatewayv2_api.q07_http_proxy` | `https://api.example.com/v2` | FR-001 **mitigated**, FR-026 **mitigated** (edge) | **mitigated** (TLS) |
+| Resource | Integration URI shape | Current (**v0.41.0+** / **v0.42.0+**, asserted) |
+|----------|----------------------|-----------------------------------------------------|
+| `aws_api_gateway_rest_api.q07_rest_https` | `https://api.example.com/items` | FR-001 / FR-051 **mitigated**; FR-026 edge **mitigated**; integration FR-026 **mitigated** (TLS) |
+| `aws_api_gateway_rest_api.q07_rest_http` | `http://legacy.example.com/items` | Same edge rows; integration FR-026 **open** (high, plaintext) |
+| `aws_api_gateway_rest_api.q07_rest_unknown` | `${aws_apigatewayv2_api.http.api_endpoint}/items` (unknown at plan) | Same edge rows; integration FR-026 **unverified** |
+| `aws_apigatewayv2_api.q07_http_proxy` | `https://api.example.com/v2` | FR-001 **mitigated**; FR-026 edge **mitigated**; integration FR-026 **mitigated** (TLS) |
 
 ### Known gaps
 
