@@ -2878,3 +2878,196 @@ resource "aws_apigatewayv2_stage" "f06_http_jwt" {
   name        = "$default"
   auto_deploy = true
 }
+
+# ---------------------------------------------------------------------------
+# (q) API Gateway HTTP integrations (B-07). Q07-*: four internet-facing APIs
+# with HTTP_PROXY backends to example.com; method/route authorization AWS_IAM;
+# no resource policies; no self-references in policy or integration URIs.
+# ---------------------------------------------------------------------------
+
+# q07_rest_https: HTTP_PROXY to https://api.example.com/items.
+# Later (Action after B-07 client): integration flow FR-026 mitigated (TLS backend).
+
+resource "aws_api_gateway_rest_api" "q07_rest_https" {
+  name = "${local.name}-q07-rest-https"
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_resource" "q07_rest_https_items" {
+  rest_api_id = aws_api_gateway_rest_api.q07_rest_https.id
+  parent_id   = aws_api_gateway_rest_api.q07_rest_https.root_resource_id
+  path_part   = "items"
+}
+
+resource "aws_api_gateway_method" "q07_rest_https_get" {
+  rest_api_id   = aws_api_gateway_rest_api.q07_rest_https.id
+  resource_id   = aws_api_gateway_resource.q07_rest_https_items.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "q07_rest_https" {
+  rest_api_id             = aws_api_gateway_rest_api.q07_rest_https.id
+  resource_id             = aws_api_gateway_resource.q07_rest_https_items.id
+  http_method             = aws_api_gateway_method.q07_rest_https_get.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  uri                     = "https://api.example.com/items"
+}
+
+resource "aws_api_gateway_deployment" "q07_rest_https" {
+  rest_api_id = aws_api_gateway_rest_api.q07_rest_https.id
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.q07_rest_https_items.id,
+      aws_api_gateway_method.q07_rest_https_get.id,
+      aws_api_gateway_integration.q07_rest_https.id,
+    ]))
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "q07_rest_https" {
+  deployment_id = aws_api_gateway_deployment.q07_rest_https.id
+  rest_api_id   = aws_api_gateway_rest_api.q07_rest_https.id
+  stage_name    = "prod"
+}
+
+# q07_rest_http: HTTP_PROXY to http://legacy.example.com/items.
+# Later (Action after B-07 client): integration flow FR-026 open (high, plaintext backend).
+
+resource "aws_api_gateway_rest_api" "q07_rest_http" {
+  name = "${local.name}-q07-rest-http"
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_resource" "q07_rest_http_items" {
+  rest_api_id = aws_api_gateway_rest_api.q07_rest_http.id
+  parent_id   = aws_api_gateway_rest_api.q07_rest_http.root_resource_id
+  path_part   = "items"
+}
+
+resource "aws_api_gateway_method" "q07_rest_http_get" {
+  rest_api_id   = aws_api_gateway_rest_api.q07_rest_http.id
+  resource_id   = aws_api_gateway_resource.q07_rest_http_items.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "q07_rest_http" {
+  rest_api_id             = aws_api_gateway_rest_api.q07_rest_http.id
+  resource_id             = aws_api_gateway_resource.q07_rest_http_items.id
+  http_method             = aws_api_gateway_method.q07_rest_http_get.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  uri                     = "http://legacy.example.com/items"
+}
+
+resource "aws_api_gateway_deployment" "q07_rest_http" {
+  rest_api_id = aws_api_gateway_rest_api.q07_rest_http.id
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.q07_rest_http_items.id,
+      aws_api_gateway_method.q07_rest_http_get.id,
+      aws_api_gateway_integration.q07_rest_http.id,
+    ]))
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "q07_rest_http" {
+  deployment_id = aws_api_gateway_deployment.q07_rest_http.id
+  rest_api_id   = aws_api_gateway_rest_api.q07_rest_http.id
+  stage_name    = "prod"
+}
+
+# q07_rest_unknown: integration URI uses aws_apigatewayv2_api.http.api_endpoint
+# (a different API in this stack). api_endpoint is computed after apply, so the
+# integration uri is unknown at plan time.
+# Later (Action after B-07 client): integration flow FR-026 unverified.
+
+resource "aws_api_gateway_rest_api" "q07_rest_unknown" {
+  name = "${local.name}-q07-rest-unknown"
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_resource" "q07_rest_unknown_items" {
+  rest_api_id = aws_api_gateway_rest_api.q07_rest_unknown.id
+  parent_id   = aws_api_gateway_rest_api.q07_rest_unknown.root_resource_id
+  path_part   = "items"
+}
+
+resource "aws_api_gateway_method" "q07_rest_unknown_get" {
+  rest_api_id   = aws_api_gateway_rest_api.q07_rest_unknown.id
+  resource_id   = aws_api_gateway_resource.q07_rest_unknown_items.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "q07_rest_unknown" {
+  rest_api_id             = aws_api_gateway_rest_api.q07_rest_unknown.id
+  resource_id             = aws_api_gateway_resource.q07_rest_unknown_items.id
+  http_method             = aws_api_gateway_method.q07_rest_unknown_get.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  uri                     = "${aws_apigatewayv2_api.http.api_endpoint}/items"
+}
+
+resource "aws_api_gateway_deployment" "q07_rest_unknown" {
+  rest_api_id = aws_api_gateway_rest_api.q07_rest_unknown.id
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.q07_rest_unknown_items.id,
+      aws_api_gateway_method.q07_rest_unknown_get.id,
+      aws_api_gateway_integration.q07_rest_unknown.id,
+    ]))
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "q07_rest_unknown" {
+  deployment_id = aws_api_gateway_deployment.q07_rest_unknown.id
+  rest_api_id   = aws_api_gateway_rest_api.q07_rest_unknown.id
+  stage_name    = "prod"
+}
+
+# q07_http_proxy: HTTP API with HTTP_PROXY to https://api.example.com/v2.
+# Later (Action after B-07 client): integration flow FR-026 mitigated (TLS backend).
+
+resource "aws_apigatewayv2_api" "q07_http_proxy" {
+  name          = "${local.name}-q07-http-proxy"
+  protocol_type = "HTTP"
+}
+
+resource "aws_apigatewayv2_integration" "q07_http_proxy" {
+  api_id               = aws_apigatewayv2_api.q07_http_proxy.id
+  integration_type     = "HTTP_PROXY"
+  integration_method   = "GET"
+  integration_uri      = "https://api.example.com/v2"
+  payload_format_version = "1.0"
+}
+
+resource "aws_apigatewayv2_route" "q07_http_proxy" {
+  api_id             = aws_apigatewayv2_api.q07_http_proxy.id
+  route_key          = "GET /v2"
+  target             = "integrations/${aws_apigatewayv2_integration.q07_http_proxy.id}"
+  authorization_type = "AWS_IAM"
+}
+
+resource "aws_apigatewayv2_stage" "q07_http_proxy" {
+  api_id      = aws_apigatewayv2_api.q07_http_proxy.id
+  name        = "$default"
+  auto_deploy = true
+}

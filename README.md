@@ -143,6 +143,21 @@ route resources; no resource policy; MOCK integrations live in the spec.
 REST rows also carry **FR-051 mitigated** (no resource policy) and **FR-026
 mitigated** (TLS edge) on the current pin.
 
+### API Gateway HTTP integration fixtures (B-07)
+
+Section **(q)** in `infra/main.tf`: four APIs with **HTTP_PROXY** backends to
+`example.com` hosts; every method or route uses **AWS_IAM**; no resource
+policies. On the current Action pin (**v0.41.0**), HTTP integrations emit no
+backend flow (edge rows only). After the B-07 client pin, expect an additional
+**FR-026** row on each API’s outbound integration flow.
+
+| Resource | Integration URI shape | Action **v0.41.0** (current pin) | After B-07 client pin (integration flow FR-026) |
+|----------|----------------------|----------------------------------|--------------------------------------------------|
+| `aws_api_gateway_rest_api.q07_rest_https` | `https://api.example.com/items` | FR-001 **mitigated**, FR-026 **mitigated** (edge), FR-051 **mitigated** | **mitigated** (TLS) |
+| `aws_api_gateway_rest_api.q07_rest_http` | `http://legacy.example.com/items` | Same edge rows | **open** (high, plaintext) |
+| `aws_api_gateway_rest_api.q07_rest_unknown` | `${aws_apigatewayv2_api.http.api_endpoint}/items` (unknown at plan) | Same edge rows | **unverified** |
+| `aws_apigatewayv2_api.q07_http_proxy` | `https://api.example.com/v2` | FR-001 **mitigated**, FR-026 **mitigated** (edge) | **mitigated** (TLS) |
+
 ### Known gaps
 
 Until Action v0.33.0: no expected rows for VM/ASG IAM-derived S3 or RDS flows

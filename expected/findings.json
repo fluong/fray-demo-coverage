@@ -249,6 +249,72 @@
       "why": "public_client \u2192 HTTP API edge; transport=tls (Action v0.40.0+)"
     },
     {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.q07_rest_https",
+      "verdict": "mitigated",
+      "why": "Method authorization AWS_IAM (Action v0.41.0); no HTTP backend flow on pin"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.q07_rest_https",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls (Action v0.40.0+); no integration flow on v0.41.0"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.q07_rest_https",
+      "verdict": "mitigated",
+      "why": "No resource policy; resource_policy_world_principal and cross_account false"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.q07_rest_http",
+      "verdict": "mitigated",
+      "why": "Method authorization AWS_IAM (Action v0.41.0); no HTTP backend flow on pin"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.q07_rest_http",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls (Action v0.40.0+); no integration flow on v0.41.0"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.q07_rest_http",
+      "verdict": "mitigated",
+      "why": "No resource policy; resource_policy_world_principal and cross_account false"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_api_gateway_rest_api.q07_rest_unknown",
+      "verdict": "mitigated",
+      "why": "Method authorization AWS_IAM (Action v0.41.0); no HTTP backend flow on pin"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.q07_rest_unknown",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 REST API edge; transport=tls (Action v0.40.0+); no integration flow on v0.41.0"
+    },
+    {
+      "rule": "FR-051",
+      "address": "aws_api_gateway_rest_api.q07_rest_unknown",
+      "verdict": "mitigated",
+      "why": "No resource policy; resource_policy_world_principal and cross_account false"
+    },
+    {
+      "rule": "FR-001",
+      "address": "aws_apigatewayv2_api.q07_http_proxy",
+      "verdict": "mitigated",
+      "why": "Route authorization_type AWS_IAM (Action v0.41.0); no HTTP backend flow on pin"
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_apigatewayv2_api.q07_http_proxy",
+      "verdict": "mitigated",
+      "why": "public_client \u2192 HTTP API edge; transport=tls (Action v0.40.0+); no integration flow on v0.41.0"
+    },
+    {
       "rule": "FR-029",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
