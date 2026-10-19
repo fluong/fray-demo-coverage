@@ -315,6 +315,54 @@
       "why": "public_client \u2192 HTTP API edge; transport=tls (Action v0.40.0+); no integration flow on v0.41.0"
     },
     {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.q07_rest_https",
+      "verdict": "mitigated",
+      "why": "api_gateway \u2192 external HTTP endpoint; HTTP integration over https (Action v0.42.0+)",
+      "flow": {
+        "from": "aws_api_gateway_rest_api.q07_rest_https",
+        "to": "external_http_endpoint",
+        "data_class": "unknown",
+        "cause": "aws_api_gateway_integration.q07_rest_https"
+      }
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.q07_rest_http",
+      "verdict": "open",
+      "why": "api_gateway \u2192 external HTTP endpoint; plain HTTP integration (Action v0.42.0+)",
+      "flow": {
+        "from": "aws_api_gateway_rest_api.q07_rest_http",
+        "to": "external_http_endpoint",
+        "data_class": "unknown",
+        "cause": "aws_api_gateway_integration.q07_rest_http"
+      }
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_api_gateway_rest_api.q07_rest_unknown",
+      "verdict": "unverified",
+      "why": "api_gateway \u2192 external HTTP endpoint; integration URI unknown at plan (Action v0.42.0+)",
+      "flow": {
+        "from": "aws_api_gateway_rest_api.q07_rest_unknown",
+        "to": "external_http_endpoint",
+        "data_class": "unknown",
+        "cause": "aws_api_gateway_integration.q07_rest_unknown"
+      }
+    },
+    {
+      "rule": "FR-026",
+      "address": "aws_apigatewayv2_api.q07_http_proxy",
+      "verdict": "mitigated",
+      "why": "api_gateway \u2192 external HTTP endpoint; HTTP integration over https (Action v0.42.0+)",
+      "flow": {
+        "from": "aws_apigatewayv2_api.q07_http_proxy",
+        "to": "external_http_endpoint",
+        "data_class": "unknown",
+        "cause": "aws_apigatewayv2_integration.q07_http_proxy"
+      }
+    },
+    {
       "rule": "FR-029",
       "address": "aws_db_instance.main",
       "verdict": "mitigated",
